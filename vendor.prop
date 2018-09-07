@@ -241,6 +241,9 @@ persist.vendor.rcs.singlereg.feature=0
 # Incremental FS
 ro.incremental.enable=yes
 
+# Keystore
+ro.hardware.keystore_desede=true
+
 # Media
 debug.c2.use_dmabufheaps=1
 debug.stagefright.c2inputsurface=-1
