@@ -41,9 +41,6 @@ ro.media.recorder-max-base-layer-fps=60
 # Netmgrd
 persist.vendor.data.mode=concurrent
 
-# Radio
-ro.telephony.default_network=33,33
-
 # RTT
 config.disable_rtt=true
 
