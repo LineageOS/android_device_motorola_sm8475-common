@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-BOARD_VENDOR := motorola
-
 COMMON_PATH := device/motorola/sm8475-common
 
 # Architecture
