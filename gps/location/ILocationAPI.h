@@ -445,7 +445,7 @@ public:
         @return
         No return value.
     */
-    virtual void powerStateEvent(PowerStateType powerState) {};
+    virtual void powerStateEvent(PowerStateType /*powerState*/) {};
 };
 
 #endif /* ILOCATIONAPI_H */
