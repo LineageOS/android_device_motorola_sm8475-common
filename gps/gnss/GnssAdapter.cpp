@@ -172,6 +172,10 @@ GnssAdapter::GnssAdapter() :
     mAgpsManager(),
     mNfwCb(NULL),
     mIsE911Session(NULL),
+    mPowerIndicationCb(nullptr),
+    mGnssPowerStatisticsInit(false),
+    mBootReferenceEnergy(0),
+    mPowerElapsedRealTimeCal(30000000),
     mIsMeasCorrInterfaceOpen(false),
     mQDgnssListenerHDL(nullptr),
     mCdfwInterface(nullptr),
@@ -182,6 +186,7 @@ GnssAdapter::GnssAdapter() :
     mCallbackPriority(OdcpiPrioritytype::ODCPI_HANDLER_PRIORITY_LOW),
     mOdcpiTimer(this),
     mOdcpiRequest(),
+    mAddressRequestCb(nullptr),
     mLastDeleteAidingDataTime(0),
     mSystemStatus(SystemStatus::getInstance(mMsgTask)),
     mServerUrl(":"),
@@ -191,18 +196,13 @@ GnssAdapter::GnssAdapter() :
     mBlockCPIInfo{},
     mPowerOn(false),
     mDreIntEnabled(false),
+    mPositionElapsedRealTimeCal(30000000),
     mNativeAgpsHandler(mSystemStatus->getOsObserver(), *this),
     mGnssEnergyConsumedCb(nullptr),
     mPowerStateCb(nullptr),
     mSendNmeaConsent(false),
     mDgnssState(0),
-    mDgnssLastNmeaBootTimeMilli(0),
-    mPowerIndicationCb(nullptr),
-    mGnssPowerStatisticsInit(false),
-    mBootReferenceEnergy(0),
-    mPowerElapsedRealTimeCal(30000000),
-    mAddressRequestCb(nullptr),
-    mPositionElapsedRealTimeCal(30000000)
+    mDgnssLastNmeaBootTimeMilli(0)
 {
     LOC_LOGD("%s]: Constructor %p", __func__, this);
     mLocPositionMode.mode = LOC_POSITION_MODE_INVALID;
@@ -1745,8 +1745,8 @@ GnssAdapter::gnssGetConfigCommand(GnssConfigFlagsMask configMask) {
             mAdapter(adapter),
             mApi(api),
             mConfigMask(configMask),
-            mCount(count),
-            mIds(nullptr) {
+            mIds(nullptr),
+            mCount(count) {
                 if (mCount > 0) {
                     mIds = new uint32_t[count];
                     if (mIds) {
@@ -4279,8 +4279,8 @@ void GnssAdapter::reportEngDebugDataInfoEvent(GnssEngineDebugDataInfo& gnssEngin
         GnssAdapter& mAdapter;
         const GnssEngineDebugDataInfo mGnssEngineDebugDataInfo;
         inline MsgReportEngDebugDataInfo(GnssAdapter& adapter, GnssEngineDebugDataInfo&
-            gnssEngineDebugDataInfo) : mGnssEngineDebugDataInfo(gnssEngineDebugDataInfo),
-                mAdapter(adapter) {}
+            gnssEngineDebugDataInfo) : mAdapter(adapter),
+		mGnssEngineDebugDataInfo(gnssEngineDebugDataInfo) {}
         inline virtual void proc() const {
             mAdapter.reportEngDebugDataInfo(mGnssEngineDebugDataInfo);
         }
@@ -4296,8 +4296,8 @@ GnssAdapter::reportLatencyInfoEvent(const GnssLatencyInfo& gnssLatencyInfo)
         GnssLatencyInfo mGnssLatencyInfo;
         inline MsgReportLatencyInfo(GnssAdapter& adapter,
             const GnssLatencyInfo& gnssLatencyInfo) :
-            mGnssLatencyInfo(gnssLatencyInfo),
-            mAdapter(adapter) {}
+            mAdapter(adapter),
+            mGnssLatencyInfo(gnssLatencyInfo) {}
         inline virtual void proc() const {
             mAdapter.mGnssLatencyInfoQueue.push(mGnssLatencyInfo);
             LOC_LOGv("mGnssLatencyInfoQueue.size after push=%zu",
@@ -5673,9 +5673,9 @@ void GnssAdapter::reportPdnTypeFromWds(int pdnType, AGpsExtType agpsType, std::s
         inline MsgReportAtlPdn(GnssAdapter& adapter, int pdnType,
                 AgpsManager* agpsManager, AGpsExtType agpsType,
                 const string& apnName, AGpsBearerType bearerType) :
-            LocMsg(), mAgpsManager(agpsManager), mAgpsType(agpsType),
-            mApnName(apnName), mBearerType(bearerType),
-            mAdapter(adapter), mPdnType(pdnType) {}
+            LocMsg(), mAdapter(adapter), mPdnType(pdnType),
+            mAgpsManager(agpsManager), mAgpsType(agpsType),
+            mApnName(apnName), mBearerType(bearerType) {}
         inline virtual void proc() const {
             mAgpsManager->reportAtlOpenSuccess(mAgpsType,
                     const_cast<char*>(mApnName.c_str()),
@@ -5704,8 +5704,8 @@ void GnssAdapter::dataConnOpenCommand(
 
         inline AgpsMsgAtlOpenSuccess(GnssAdapter& adapter, AgpsManager* agpsManager,
                 AGpsExtType agpsType, const char* apnName, int apnLen, AGpsBearerType bearerType) :
-                LocMsg(), mAgpsManager(agpsManager), mAgpsType(agpsType), mApnName(
-                        new char[apnLen + 1]), mBearerType(bearerType), mAdapter(adapter) {
+                LocMsg(), mAdapter(adapter), mAgpsManager(agpsManager), mAgpsType(agpsType),
+                        mApnName(new char[apnLen + 1]), mBearerType(bearerType) {
 
             LOC_LOGV("AgpsMsgAtlOpenSuccess");
             if (mApnName == nullptr) {
