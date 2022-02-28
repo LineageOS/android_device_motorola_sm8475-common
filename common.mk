@@ -132,6 +132,7 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/generic_ramdisk.mk)
 
 # fastbootd
 PRODUCT_PACKAGES += \
+    android.hardware.fastboot@1.1-impl-mock \
     fastbootd
 
 # GPS
