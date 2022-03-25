@@ -25,6 +25,12 @@ value:2908
 [AID_VENDOR_QTR]
 value:2909
 
+[AID_VENDOR_NXP_STRONGBOX]
+value:2910
+
+[AID_VENDOR_NXP_WEAVER]
+value:2911
+
 [AID_VENDOR_BRIDGE_RW]
 value:5001
 
@@ -48,6 +54,18 @@ value:5120
 
 [AID_VENDOR_PROD_PERSIST]
 value:5121
+
+[vendor/bin/hw/android.hardware.security.keymint-service.strongbox]
+mode: 0755
+user: AID_VENDOR_NXP_STRONGBOX
+group: AID_SYSTEM
+caps: SYS_ADMIN SYS_NICE
+
+[vendor/bin/hw/android.hardware.weaver@1.0-service]
+mode: 0755
+user: AID_VENDOR_NXP_WEAVER
+group: AID_SYSTEM
+caps: SYS_ADMIN SYS_NICE
 
 [vendor/bin/wcnss_filter]
 mode: 0755
