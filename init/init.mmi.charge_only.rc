@@ -49,9 +49,6 @@ on moto-charger
     #Enable UFS clock gating back
     write /sys/bus/platform/devices/1d84000.ufshc/clkgate_enable 1
 
-on firmware_mounts_complete && property:ro.boot.mode=charger && property:persist.vendor.qcomsysd.enabled=1
-    stop qcomsysd
-
 service vendor.thermal-com /vendor/bin/thermal-engine-v2 --minimode
     class charger
     user root
