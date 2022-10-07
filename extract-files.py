@@ -95,7 +95,6 @@ blob_fixups: blob_fixups_user_type = {
     ),
     'vendor/lib64/sensors.moto.so': blob_fixup().add_needed('libbase_shim.so'),
     (
-        'vendor/etc/seccomp_policy/atfwd@2.0.policy',
         'vendor/etc/seccomp_policy/modemManager.policy',
         'vendor/etc/seccomp_policy/sensors-qesdk.policy',
     ): blob_fixup().add_line_if_missing('gettid: 1'),

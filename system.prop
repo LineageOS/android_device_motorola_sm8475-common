@@ -42,7 +42,6 @@ ro.media.recorder-max-base-layer-fps=60
 persist.vendor.data.mode=concurrent
 
 # Radio
-persist.vendor.radio.atfwd.start=true
 ro.telephony.default_network=33,33
 
 # RTT
