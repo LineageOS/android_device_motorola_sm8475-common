@@ -73,6 +73,7 @@ BOARD_BOOT_HEADER_VERSION := 4
 BOARD_KERNEL_BASE := 0x00000000
 BOARD_KERNEL_CMDLINE += \
     firmware_class.path=/data/vendor/param/firmware \
+    log_buf_len=1M \
     printk.devkmsg=on \
     sysctl.kernel.firmware_config.force_sysfs_fallback=1
 BOARD_BOOTCONFIG += \
