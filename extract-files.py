@@ -81,6 +81,8 @@ blob_fixups: blob_fixups_user_type = {
         'android.hardware.security.sharedsecret-V1-ndk.so',
     )
     .add_needed('android.hardware.security.rkp-V1-ndk.so'),
+    'vendor/bin/init.kernel.post_boot.sh': blob_fixup()
+        .regex_replace('ro.boot.using_zram_from_fstab', 'ro.vendor.zram.swapon'),
     'vendor/bin/qcc-trd': blob_fixup().replace_needed(
         'libgrpc++_unsecure.so', 'libgrpc++_unsecure_prebuilt.so'
     ),
