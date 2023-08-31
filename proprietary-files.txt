@@ -745,7 +745,6 @@ vendor/lib64/libqmi_encdec.so
 vendor/lib64/libqmi_legacy.so
 vendor/lib64/libqmimotext.so
 vendor/lib64/libqmiservices.so
-vendor/lib64/libsubsystem_control.so
 
 # QSPM
 system_ext/bin/qspmsvc
@@ -1132,6 +1131,12 @@ vendor/bin/ssgtzd
 vendor/etc/init/ssgtzd.rc
 vendor/etc/ssg/ta_config.json
 vendor/etc/ssg/tz_whitelist.json
+
+# SSR
+vendor/bin/ssr_diag
+vendor/bin/ssr_setup
+vendor/bin/subsystem_ramdump
+vendor/lib64/libsubsystem_control.so
 
 # Thermal engine
 vendor/bin/thermal-engine-v2
