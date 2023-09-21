@@ -16,6 +16,24 @@
       "message": "This is not the actual revert.",
       "revId": "a53c723631b80e608ecda534f9142e213914d1e8",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "a7ce78ec_6dd29efb",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 14048
+      },
+      "writtenOn": "2023-09-21T20:42:28Z",
+      "side": 1,
+      "message": "Fixed. I derped a rebase at some point.",
+      "parentUuid": "ace53d53_3958c119",
+      "revId": "a53c723631b80e608ecda534f9142e213914d1e8",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
