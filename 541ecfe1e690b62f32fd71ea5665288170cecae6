@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "0efcb7d8_46cd5a81",
+        "filename": "proprietary-files.txt",
+        "patchSetId": 3
+      },
+      "lineNbr": 487,
+      "author": {
+        "id": 13648
+      },
+      "writtenOn": "2023-11-24T22:07:51Z",
+      "side": 0,
+      "message": "What does this have to do with qcc?",
+      "revId": "541ecfe1e690b62f32fd71ea5665288170cecae6",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
