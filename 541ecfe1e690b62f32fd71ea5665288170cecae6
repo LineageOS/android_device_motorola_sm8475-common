@@ -34,6 +34,24 @@
       "parentUuid": "0efcb7d8_46cd5a81",
       "revId": "541ecfe1e690b62f32fd71ea5665288170cecae6",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "c234eae4_57223d9c",
+        "filename": "proprietary-files.txt",
+        "patchSetId": 3
+      },
+      "lineNbr": 487,
+      "author": {
+        "id": 25732
+      },
+      "writtenOn": "2023-11-24T23:56:54Z",
+      "side": 0,
+      "message": "Won\u0027t removing the binary kill assisted GPS?",
+      "parentUuid": "992153ec_d0778610",
+      "revId": "541ecfe1e690b62f32fd71ea5665288170cecae6",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
