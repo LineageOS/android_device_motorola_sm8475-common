@@ -16,6 +16,24 @@
       "message": "What does this have to do with qcc?",
       "revId": "541ecfe1e690b62f32fd71ea5665288170cecae6",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "992153ec_d0778610",
+        "filename": "proprietary-files.txt",
+        "patchSetId": 3
+      },
+      "lineNbr": 487,
+      "author": {
+        "id": 14048
+      },
+      "writtenOn": "2023-11-24T23:12:29Z",
+      "side": 0,
+      "message": "It depends on qcc. And per Mike, xtra download is the only thing qcc is used for, and can be handled in other ways.",
+      "parentUuid": "0efcb7d8_46cd5a81",
+      "revId": "541ecfe1e690b62f32fd71ea5665288170cecae6",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
