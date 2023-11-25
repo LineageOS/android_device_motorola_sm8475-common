@@ -52,6 +52,24 @@
       "parentUuid": "992153ec_d0778610",
       "revId": "541ecfe1e690b62f32fd71ea5665288170cecae6",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "9739810f_8fe1f0ec",
+        "filename": "proprietary-files.txt",
+        "patchSetId": 3
+      },
+      "lineNbr": 487,
+      "author": {
+        "id": 14048
+      },
+      "writtenOn": "2023-11-25T02:00:41Z",
+      "side": 0,
+      "message": "Per mike in discord:\nthe only thing I know is those services are related to xtra data download and xtra works without them\n\nI don\u0027t know if the service is necessary for that or not. But the service has a needs on qcc libraries. So presumably this entire commit would need abandoned to keep the service. Or at least cut back to not remove the vendor copy.",
+      "parentUuid": "c234eae4_57223d9c",
+      "revId": "541ecfe1e690b62f32fd71ea5665288170cecae6",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
