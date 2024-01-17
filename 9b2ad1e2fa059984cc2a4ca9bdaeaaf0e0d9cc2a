@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "16e49715_196e22e9",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 3
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 14048
+      },
+      "writtenOn": "2024-01-17T00:07:27Z",
+      "side": 1,
+      "message": "Need to leave xtra and its deps, everything can be removed. Apparently xtra doesn\u0027t need the entire stack, just a couple random symbols that don\u0027t spiderweb.",
+      "revId": "9b2ad1e2fa059984cc2a4ca9bdaeaaf0e0d9cc2a",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
