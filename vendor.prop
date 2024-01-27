@@ -260,9 +260,6 @@ vendor.qc2audio.suspend.enabled=true
 # QSPM
 ro.vendor.qspm.enable=true
 
-# Qualcomm System Daemon
-persist.vendor.qcomsysd.enabled=1
-
 # Radio
 persist.vendor.data.mode=concurrent
 persist.vendor.data.qmipriod_load=1
