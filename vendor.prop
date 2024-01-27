@@ -257,9 +257,6 @@ ro.vendor.perf.scroll_opt=1
 vendor.qc2audio.per_frame.flac.dec.enabled=true
 vendor.qc2audio.suspend.enabled=true
 
-# QSPM
-ro.vendor.qspm.enable=true
-
 # Radio
 persist.vendor.data.mode=concurrent
 persist.vendor.data.qmipriod_load=1
