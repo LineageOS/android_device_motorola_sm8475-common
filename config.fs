@@ -43,6 +43,9 @@ value:2914
 [AID_VENDOR_NXP_AUTHSECRET]
 value:2915
 
+[AID_VENDOR_THALES_WEAVER]
+value:2916
+
 [AID_VENDOR_BRIDGE_RW]
 value:5001
 
@@ -72,6 +75,13 @@ mode: 0755
 user: AID_VENDOR_THALES_STRONGBOX
 group: AID_SYSTEM
 caps: SYS_ADMIN SYS_NICE
+
+[vendor/bin/hw/android.hardware.weaver-service.thales]
+mode: 0755
+user: AID_VENDOR_THALES_WEAVER
+group: AID_SYSTEM
+caps: SYS_ADMIN SYS_NICE
+
 
 [vendor/bin/wcnss_filter]
 mode: 0755
