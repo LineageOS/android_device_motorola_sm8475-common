@@ -495,6 +495,15 @@ vendor/etc/init/ipacm-diag.rc
 vendor/bin/msm_irqbalance
 vendor/etc/msm_irqbalance.conf
 
+# Kernel
+vendor/bin/init.kernel.post_boot-cape.sh
+vendor/bin/init.kernel.post_boot-diwali.sh
+vendor/bin/init.kernel.post_boot-taro.sh
+vendor/bin/init.kernel.post_boot.sh
+vendor/bin/init.qti.kernel.sh
+vendor/bin/vendor_modprobe.sh
+vendor/etc/init/hw/init.qti.kernel.rc
+
 # Keymaster
 vendor/bin/hw/android.hardware.keymaster@4.0-strongbox-service-qti
 vendor/bin/hw/android.hardware.keymaster@4.1-service-qti
@@ -707,6 +716,10 @@ vendor/lib64/vendor.qti.qesdhal@1.0.so
 vendor/lib64/vendor.qti.qesdhal@1.1-impl.so
 vendor/lib64/vendor.qti.qesdhal@1.1.so
 vendor/lib64/vendor.qti.qesdsys-V1-ndk_platform.so
+
+# QCV
+vendor/bin/init.qti.qcv.sh
+vendor/etc/init/init.qti.qcv.rc
 
 # QMI
 system/etc/permissions/privapp-permissions-qti.xml
@@ -1053,6 +1066,7 @@ vendor/lib64/vendor.qti.ims.rcsuce@1.2.so
 
 # Sensors
 vendor/bin/hw/vendor.qti.hardware.sensorscalibrate@1.0-service
+vendor/bin/init.qcom.sensors.sh
 vendor/bin/sensors.qti
 vendor/bin/sscrpcd
 vendor/etc/init/init.vendor.sensors.rc
