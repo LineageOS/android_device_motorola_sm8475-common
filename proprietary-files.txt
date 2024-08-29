@@ -689,23 +689,6 @@ vendor/lib64/vendor.qti.hardware.qccsyshal@1.1.so;MODULE_SUFFIX=_vendor
 vendor/lib64/vendor.qti.hardware.qccvndhal@1.0-halimpl.so
 vendor/lib64/vendor.qti.hardware.qccvndhal@1.0.so;MODULE_SUFFIX=_vendor
 
-# QESDK
-vendor/bin/perf_qesdk_client
-vendor/bin/qesdk-manager
-vendor/bin/sensors-qesdk
-vendor/etc/init/qapeservice.rc
-vendor/etc/init/qesdk-manager.rc
-vendor/etc/init/vendor.sensors.qesdk.rc
-vendor/etc/seccomp_policy/qapeservice.policy
-vendor/etc/seccomp_policy/qesdk.policy
-vendor/etc/seccomp_policy/sensors-qesdk.policy
-vendor/lib64/libqesdk.so
-vendor/lib64/libqesdk_manager.so
-vendor/lib64/vendor.qti.qesdhal@1.0.so
-vendor/lib64/vendor.qti.qesdhal@1.1-impl.so
-vendor/lib64/vendor.qti.qesdhal@1.1.so
-vendor/lib64/vendor.qti.qesdsys-V1-ndk_platform.so
-
 # QCV
 vendor/bin/init.qti.qcv.sh
 vendor/etc/init/init.qti.qcv.rc
