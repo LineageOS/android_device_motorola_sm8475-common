@@ -19,6 +19,7 @@ from extract_utils.main import (
 namespace_imports = [
     'device/motorola/sm8475-common',
     'hardware/qcom-caf/sm8450',
+    'hardware/qcom-caf/sm8450/audio/agm/ipc/HwBinders/backport/interfaces',
     'hardware/qcom-caf/wlan',
     'vendor/qcom/opensource/commonsys/display',
     'vendor/qcom/opensource/commonsys-intf/display',
