@@ -47,7 +47,7 @@ def lib_fixup_vendor_suffix(lib: str, partition: str, *args, **kwargs):
     if partition != 'vendor':
         return None
 
-    return f'{lib}-{partition}'
+    return f'{lib}_{partition}'
 
 
 lib_fixups: lib_fixups_user_type = {
