@@ -163,10 +163,7 @@ BOARD_USES_ALSA_AUDIO := true
 TARGET_USES_QCOM_MM_AUDIO := true
 USE_CUSTOM_AUDIO_POLICY := 1
 
-SOONG_CONFIG_NAMESPACES += android_hardware_audio
-SOONG_CONFIG_android_hardware_audio += \
-	run_64bit
-SOONG_CONFIG_android_hardware_audio_run_64bit := true
+$(call soong_config_set,android_hardware_audio,run_64bit,true)
 
 # Display
 TARGET_USES_COLOR_METADATA := true
