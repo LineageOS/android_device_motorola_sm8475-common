@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "25da9021_7f1d9355",
+        "filename": "BoardConfigCommon.mk",
+        "patchSetId": 1
+      },
+      "lineNbr": 166,
+      "author": {
+        "id": 13648
+      },
+      "writtenOn": "2025-01-24T09:31:26Z",
+      "side": 1,
+      "message": "I\u0027d suggest to move all these calls to product makefile.",
+      "revId": "734770505174dead48ffd758f3660ff31583d0f4",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
