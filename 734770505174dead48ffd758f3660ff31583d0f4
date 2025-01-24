@@ -16,6 +16,24 @@
       "message": "I\u0027d suggest to move all these calls to product makefile.",
       "revId": "734770505174dead48ffd758f3660ff31583d0f4",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "4196beba_0a307a18",
+        "filename": "BoardConfigCommon.mk",
+        "patchSetId": 1
+      },
+      "lineNbr": 166,
+      "author": {
+        "id": 13648
+      },
+      "writtenOn": "2025-01-24T09:44:55Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "25da9021_7f1d9355",
+      "revId": "734770505174dead48ffd758f3660ff31583d0f4",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
