@@ -114,17 +114,6 @@ PRODUCT_COPY_FILES += \
 
 $(call soong_config_set,android_hardware_audio,run_64bit,true)
 
-# Audio - SoundFX
-PRODUCT_PACKAGES += \
-    libaudiopreprocessing \
-    libbundlewrapper \
-    libdynproc \
-    libeffectproxy \
-    libhapticgenerator \
-    libldnhncr \
-    libreverbwrapper \
-    libvisualizer
-
 # Charger
 WITH_LINEAGE_CHARGER := false
 
