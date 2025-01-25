@@ -66,37 +66,37 @@ PRODUCT_COPY_FILES += \
 
 # Boot control
 PRODUCT_PACKAGES += \
-    android.hardware.boot@1.2-impl-qti \
-    android.hardware.boot@1.2-impl-qti.recovery \
+    android.hardware.boot@1.2-impl-qti:64 \
+    android.hardware.boot@1.2-impl-qti.recovery:64 \
     android.hardware.boot@1.2-service \
-    bootctrl.taro \
-    bootctrl.taro.recovery
+    bootctrl.taro:64 \
+    bootctrl.taro.recovery:64
 
 PRODUCT_PACKAGES_DEBUG += \
     bootctl
 
 # Audio
 PRODUCT_PACKAGES += \
-    android.hardware.audio@7.0-impl \
-    android.hardware.audio.effect@7.0-impl \
+    android.hardware.audio@7.0-impl:64 \
+    android.hardware.audio.effect@7.0-impl:64 \
     android.hardware.audio.service \
-    android.hardware.bluetooth.audio-impl \
-    android.hardware.soundtrigger@2.3-impl \
+    android.hardware.bluetooth.audio-impl:64 \
+    android.hardware.soundtrigger@2.3-impl:64 \
     audioadsprpcd \
-    audio.bluetooth.default \
+    audio.bluetooth.default:64 \
     audio.r_submix.default \
-    audio.primary.taro \
-    audio.usb.default \
-    lib_bt_aptx \
-    lib_bt_ble \
-    lib_bt_bundle \
-    libagm_compress_plugin \
-    libagm_mixer_plugin \
-    libagm_pcm_plugin \
-    libqcompostprocbundle \
-    libqcomvisualizer \
-    libqcomvoiceprocessing \
-    libfmpal \
+    audio.primary.taro:64 \
+    audio.usb.default:64 \
+    lib_bt_aptx:64 \
+    lib_bt_ble:64 \
+    lib_bt_bundle:64 \
+    libagm_compress_plugin:64 \
+    libagm_mixer_plugin:64 \
+    libagm_pcm_plugin:64 \
+    libqcompostprocbundle:64 \
+    libqcomvisualizer:64 \
+    libqcomvoiceprocessing:64 \
+    libfmpal:64 \
     sound_trigger.primary.taro:64 \
     vendor.qti.hardware.AGMIPC@1.0-service
 
@@ -122,7 +122,7 @@ PRODUCT_PACKAGES += \
     android.hardware.graphics.mapper@4.0-impl-qti-display \
     init.qti.display_boot.rc \
     init.qti.display_boot.sh \
-    gralloc.default \
+    gralloc.default:64 \
     vendor.qti.hardware.display.allocator-service \
     vendor.qti.hardware.display.composer-service \
     vendor.qti.hardware.display.demura-service
@@ -140,16 +140,16 @@ PRODUCT_PACKAGES += \
 
 # GPS
 PRODUCT_PACKAGES += \
-    android.hardware.gnss@2.1-impl-qti \
-    android.hardware.gnss-aidl-impl-qti \
+    android.hardware.gnss@2.1-impl-qti:64 \
+    android.hardware.gnss-aidl-impl-qti:64 \
     android.hardware.gnss-aidl-service-qti \
     gnss@2.0-base.policy \
     gnss@2.0-xtra-daemon.policy \
     gnss@2.0-xtwifi-client.policy \
     gnss@2.0-xtwifi-inet-agent.policy \
-    libbatching \
-    libgeofencing \
-    libgnss
+    libbatching:64 \
+    libgeofencing:64 \
+    libgnss:64
 
 PRODUCT_PACKAGES += \
     apdr.conf \
@@ -210,7 +210,7 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/media/media_profiles_V1_0.xml:$(TARGET_COPY_OUT_ODM)/etc/media_profiles_V1_0.xml \
 
 PRODUCT_PACKAGES += \
-    libpalclient
+    libpalclient:64
 
 # MotoActions
 PRODUCT_PACKAGES += \
@@ -296,7 +296,7 @@ PRODUCT_PACKAGES += \
 
 # QMI
 PRODUCT_PACKAGES += \
-    libvndfwk_detect_jni.qti_vendor # Needed by CNE app
+    libvndfwk_detect_jni.qti_vendor:64 # Needed by CNE app
 
 # RFS MSM MPSS symlinks
 PRODUCT_PACKAGES += \
@@ -304,7 +304,7 @@ PRODUCT_PACKAGES += \
 
 # Sensors
 PRODUCT_PACKAGES += \
-    sensors.moto_sm8475 \
+    sensors.moto_sm8475:64 \
     android.hardware.sensors@2.1-service.multihal
 
 PRODUCT_COPY_FILES += \
