@@ -21,5 +21,3 @@ recovery_only(`
   allow init self:capability sys_module;
   allow init rootfs:system module_load;
 ')
-
-allow init vendor_sysfs_vibrator:file create_file_perms;
