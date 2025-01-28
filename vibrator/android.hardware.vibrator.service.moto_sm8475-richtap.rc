@@ -1,0 +1,10 @@
+on late-fs
+    chown system system /dev/qcom_haptic
+    chmod 0600 /dev/qcom_haptic
+
+service vendor.vibrator /vendor/bin/hw/android.hardware.vibrator.service.moto_sm8475-richtap
+    class hal
+    user system
+    group system input
+    setenv RICHTAP_DEVICE_PATH /dev/qcom_haptic
+    setenv ENV_RICHTAP_CONFIG_PATH /odm/etc/aac_richtap.config
