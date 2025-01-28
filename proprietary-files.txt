@@ -1143,6 +1143,9 @@ vendor/firmware/venus_4mb_v7.mbn
 vendor/firmware/venus_v6.mbn
 vendor/firmware/venus_v7.mbn
 
+# Vibrator
+vendor/lib64/libaacvibrator.so
+
 # VPP
 vendor/bin/hw/qconfigservice
 vendor/bin/vppservice
