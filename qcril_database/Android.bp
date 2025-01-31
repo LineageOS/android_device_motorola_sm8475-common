@@ -9,6 +9,7 @@ filegroup {
         "config/11.0_config.sql",
         "config/12.0_config.sql",
         "config/13.0_config.sql",
+        "config/14.0_config.sql",
     ],
 }
 
@@ -94,6 +95,7 @@ prebuilt_etc {
         "11.0_config.sql",
         "12.0_config.sql",
         "13.0_config.sql",
+        "14.0_config.sql",
         "0_initial.sql",
         "3_version_qcrildb.sql",
         "4_version_qcrildb.sql",
