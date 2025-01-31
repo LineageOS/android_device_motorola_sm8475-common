@@ -99,6 +99,13 @@ blob_fixups: blob_fixups_user_type = {
         'vendor/etc/seccomp_policy/modemManager.policy',
         'vendor/etc/seccomp_policy/sensors-qesdk.policy',
     ): blob_fixup().add_line_if_missing('gettid: 1'),
+    (
+        'vendor/lib64/libqcrilNr.so',
+        'vendor/lib64/libril-db.so',
+    ): blob_fixup().binary_regex_replace(
+        rb'persist\.vendor\.radio\.poweron_opt',
+        b'persist.vendor.radio.poweron_ign',
+    ),
 }
 
 module = ExtractUtilsModule(
