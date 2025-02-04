@@ -231,7 +231,6 @@ repeater-i2c-eusb2.ko
 pm8941-pwrkey.ko
 qcom-hv-haptics.ko
 i2c-msm-geni.ko
-i2c-dev.ko
 i3c-master-msm-geni.ko
 qcom_ipc_lite.ko
 synx-driver.ko
