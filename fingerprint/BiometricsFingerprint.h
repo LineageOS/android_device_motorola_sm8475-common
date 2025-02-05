@@ -17,6 +17,7 @@
 #ifndef ANDROID_HARDWARE_BIOMETRICS_FINGERPRINT_V2_3_BIOMETRICSFINGERPRINT_H
 #define ANDROID_HARDWARE_BIOMETRICS_FINGERPRINT_V2_3_BIOMETRICSFINGERPRINT_H
 
+#include <android-base/unique_fd.h>
 #include <android/hardware/biometrics/fingerprint/2.3/IBiometricsFingerprint.h>
 #include <com/motorola/hardware/biometric/fingerprint/1.0/IMotoFingerPrint.h>
 #include <hidl/MQDescriptor.h>
@@ -66,11 +67,11 @@ struct BiometricsFingerprint : public IBiometricsFingerprint {
     Return<void> onFingerUp() override;
 
   private:
-    void disableHighBrightFod();
-    void enableHighBrightFod();
+    void setHighBrightFod(bool enable);
 
     bool hbmFodEnabled;
     std::mutex mSetHbmFodMutex;
+    android::base::unique_fd cardFd;
 
     sp<IBiometricsFingerprint_2_1> biometrics_2_1_service;
     sp<IMotoFingerPrint> mMotoFingerprint;
