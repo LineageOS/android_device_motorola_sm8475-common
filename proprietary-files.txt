@@ -693,9 +693,11 @@ vendor/lib64/vendor.qti.hardware.qccvndhal@1.0.so
 vendor/bin/perf_qesdk_client
 vendor/bin/qesdk-manager
 vendor/bin/sensors-qesdk
+vendor/etc/init/qapeservice.rc
 vendor/etc/init/qesdk-manager.rc
 vendor/etc/init/vendor.sensors.qesdk.rc
 vendor/etc/seccomp_policy/qesdk.policy
+vendor/etc/seccomp_policy/qapeservice.policy
 vendor/etc/seccomp_policy/sensors-qesdk.policy
 vendor/lib64/libqesdk.so
 vendor/lib64/libqesdk_manager.so
