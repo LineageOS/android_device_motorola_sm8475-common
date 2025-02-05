@@ -18,16 +18,15 @@
 
 #include "BiometricsFingerprint.h"
 
-#include <android-base/file.h>
 #include <android-base/logging.h>
+#include <display/drm/sde_drm.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 
 #include <thread>
 
 #define NOTIFY_FINGER_UP IMotFodEventType::FINGER_UP
 #define NOTIFY_FINGER_DOWN IMotFodEventType::FINGER_DOWN
-
-#define FOD_HBM_PATH "/sys/devices/platform/soc/soc:qcom,dsi-display-primary/fod_hbm"
 
 namespace android {
 namespace hardware {
@@ -36,34 +35,29 @@ namespace fingerprint {
 namespace V2_3 {
 namespace implementation {
 
-void setFodHbm(bool status) {
-    android::base::WriteStringToFile(status ? "1" : "0", FOD_HBM_PATH);
-}
-
-void BiometricsFingerprint::disableHighBrightFod() {
+void BiometricsFingerprint::setHighBrightFod(bool enable) {
+    struct drm_msm_display_fod_hbm display_fod_hbm = {0};
     std::lock_guard<std::mutex> lock(mSetHbmFodMutex);
+    int ret;
 
-    if (!hbmFodEnabled)
+    if (hbmFodEnabled == enable)
         return;
 
-    mMotoFingerprint->sendFodEvent(NOTIFY_FINGER_UP, {},
-                                   [](IMotFodEventResult, const hidl_vec<signed char> &) {});
-    setFodHbm(false);
-
-    hbmFodEnabled = false;
-}
-
-void BiometricsFingerprint::enableHighBrightFod() {
-    std::lock_guard<std::mutex> lock(mSetHbmFodMutex);
-
-    if (hbmFodEnabled)
+    if (cardFd.get() < 0) {
+        LOG(ERROR) << "Failed to open graphics card device " << 1;
         return;
+    }
 
-    setFodHbm(true);
-    mMotoFingerprint->sendFodEvent(NOTIFY_FINGER_DOWN, {},
+    display_fod_hbm.status = enable;
+
+    ret = ioctl(cardFd.get(), DRM_IOCTL_MSM_DISPLAY_FOD_HBM, &display_fod_hbm);
+    if (ret)
+        LOG(ERROR) << "Failed to send FOD HBM ioctl " << 1;
+
+    mMotoFingerprint->sendFodEvent(enable ? NOTIFY_FINGER_DOWN : NOTIFY_FINGER_UP, {},
                                    [](IMotFodEventResult, const hidl_vec<signed char> &) {});
 
-    hbmFodEnabled = true;
+    hbmFodEnabled = enable;
 }
 
 BiometricsFingerprint::BiometricsFingerprint() {
@@ -71,6 +65,10 @@ BiometricsFingerprint::BiometricsFingerprint() {
     mMotoFingerprint = IMotoFingerPrint::getService();
 
     hbmFodEnabled = false;
+    cardFd = android::base::unique_fd(open("/dev/dri/card0", O_RDWR));
+    if (cardFd.get() < 0) {
+        LOG(ERROR) << "Failed to open graphics card device " << 1;
+    }
 }
 
 Return<uint64_t> BiometricsFingerprint::setNotify(
@@ -125,7 +123,7 @@ Return<bool> BiometricsFingerprint::isUdfps(uint32_t) {
 }
 
 Return<void> BiometricsFingerprint::onFingerDown(uint32_t, uint32_t, float, float) {
-    BiometricsFingerprint::enableHighBrightFod();
+    BiometricsFingerprint::setHighBrightFod(true);
 
     std::thread([this]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -136,7 +134,7 @@ Return<void> BiometricsFingerprint::onFingerDown(uint32_t, uint32_t, float, floa
 }
 
 Return<void> BiometricsFingerprint::onFingerUp() {
-    BiometricsFingerprint::disableHighBrightFod();
+    BiometricsFingerprint::setHighBrightFod(false);
 
     return Void();
 }
