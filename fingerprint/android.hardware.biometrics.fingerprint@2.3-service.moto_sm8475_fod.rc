@@ -7,5 +7,5 @@ service fps_hal.moto_sm8475_fod /vendor/bin/hw/android.hardware.biometrics.finge
     # /data is mounted.
     class late_start
     user system
-    group system input uhid
+    group system input uhid graphics
     writepid /dev/cpuset/system-background/tasks
