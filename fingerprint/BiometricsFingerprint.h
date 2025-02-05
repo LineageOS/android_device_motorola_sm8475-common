@@ -71,6 +71,7 @@ struct BiometricsFingerprint : public IBiometricsFingerprint {
 
     bool hbmFodEnabled;
     std::mutex mSetHbmFodMutex;
+    int cardFd;
 
     sp<IBiometricsFingerprint_2_1> biometrics_2_1_service;
     sp<IMotoFingerPrint> mMotoFingerprint;
