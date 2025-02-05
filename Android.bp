@@ -5,6 +5,7 @@
 
 soong_namespace {
     imports: [
+        "kernel/motorola/sm8475-modules",
         "vendor/motorola/sm8475-common",
     ],
 }
