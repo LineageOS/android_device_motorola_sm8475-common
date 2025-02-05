@@ -602,55 +602,6 @@ process_touch_instance()
 	setup_permissions
 }
 
-
-set_ro_hw_properties_exponent_panel()
-{
-	local panelname_path=/sys/class/drm/card0-DSI-1/panelName
-	local panelname_cli_path=/sys/class/drm/card0-DSI-2/panelName
-	local bl_exponent_path=/sys/class/drm/card0-DSI-1/panelBLExponent
-	local bl_exponent_prop=ro.vendor.hw.curve
-
-	local prim_declare_path=/sys/class/drm/card0-DSI-1/panelDeclare
-	local cli_declare_path=/sys/class/drm/card0-DSI-2/panelDeclare
-	local prim_declare_prop=ro.vendor.hw.primary_declare
-	local cli_declare_prop=ro.vendor.hw.cli_declare
-
-	local panelname
-	local wait_cnt=0
-	lid_property=ro.vendor.mot.hw.lid
-	lid=1
-
-	has_lid=$(getprop $lid_property 2> /dev/null)
-	while [ "$wait_cnt" -lt 15 ]; do
-		if [ -e $panelname_path ]; then
-			panelname=$(cat $panelname_path)
-			panelBLExponent=$(cat $bl_exponent_path)
-			setprop $bl_exponent_prop "$panelBLExponent"
-			notice "setprop $bl_exponent_prop as $panelBLExponent for panel [$panelname]"
-			if [ -e $prim_declare_path ]; then
-			    prim_declare_str=$(cat $prim_declare_path)
-			    setprop $prim_declare_prop "$prim_declare_str"
-			    notice "setprop $prim_declare_prop as $prim_declare_str for panel [$panelname]"
-			fi
-			if [ $has_lid -eq $lid ]
-			then
-			    if [ -e $panelname_cli_path -a -e $cli_declare_path ] ; then
-			        panelname=$(cat $panelname_cli_path)
-			        cli_declare_str=$(cat $cli_declare_path)
-			        setprop $cli_declare_prop "$cli_declare_str"
-			        notice "setprop $cli_declare_prop as $cli_declare_str for panel [$panelname]"
-			        break;
-			    fi
-			else
-			    break;
-			fi
-		fi
-		notice "waiting for panelname, wait_cnt is $wait_cnt, has_lid is $has_lid"
-		sleep 1;
-		wait_cnt=$((wait_cnt+1))
-	done
-}
-
 # Main starts here
 query_panel_info
 load_driver_modules
@@ -676,9 +627,6 @@ if [ -f /sys/bus/i2c/devices/1-0033/vendor ]; then
 fi
 
 # check if need to reload modules
-
-# set exponent backlight property
-set_ro_hw_properties_exponent_panel
 
 wait
 debug "all background processes completed"
