@@ -302,7 +302,7 @@ PRODUCT_PACKAGES += \
 # Sensors
 PRODUCT_PACKAGES += \
     sensors.moto_sm8475:64 \
-    android.hardware.sensors@2.1-service.multihal
+    android.hardware.sensors-service.multihal
 
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/sensors/hals.conf:$(TARGET_COPY_OUT_VENDOR)/etc/sensors/hals.conf
