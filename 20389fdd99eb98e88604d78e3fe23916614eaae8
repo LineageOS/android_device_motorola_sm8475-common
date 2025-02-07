@@ -22,6 +22,29 @@
       },
       "revId": "20389fdd99eb98e88604d78e3fe23916614eaae8",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "40f072fc_dcb7c49b",
+        "filename": "fingerprint/BiometricsFingerprint.h",
+        "patchSetId": 2
+      },
+      "lineNbr": 74,
+      "author": {
+        "id": 11883
+      },
+      "writtenOn": "2025-02-07T14:40:43Z",
+      "side": 1,
+      "message": "leak 😞\nandroid::base::unique_fd t the rescue!",
+      "range": {
+        "startLine": 74,
+        "startChar": 0,
+        "endLine": 74,
+        "endChar": 15
+      },
+      "revId": "20389fdd99eb98e88604d78e3fe23916614eaae8",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
