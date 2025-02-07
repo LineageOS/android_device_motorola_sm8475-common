@@ -21,7 +21,7 @@
 /(vendor|system/vendor)/super_modem                     u:object_r:firmware_file:s0
 
 # Awinic
-/(mnt/vendor/persist|persist)/factory/audio/audio.cal u:object_r:vendor_persist_audio_file:s0
+/(mnt/vendor/persist|persist)/factory/audio/audio\.cal  u:object_r:vendor_persist_audio_file:s0
 
 # Camera
 /data/vendor/misc/imager(/.*)?                          u:object_r:vendor_imager_data_file:s0
@@ -50,7 +50,7 @@
 /(mnt/vendor/persist|persist)/mdm(/.*)?                 u:object_r:persist_modem_file:s0
 /(vendor|system/vendor)/bin/hw/android\.hardware\.biometrics\.fingerprint@2\.3-service\.moto_sm8475_fod u:object_r:hal_fingerprint_default_exec:s0
 /(vendor|system/vendor)/bin/hw/android\.hardware\.biometrics\.fingerprint@2\.1-service-ets              u:object_r:hal_fingerprint_default_exec:s0
-/data/vendor/.fps(/.*)?                                 u:object_r:fingerprint_vendor_data_file:s0
+/data/vendor/\.fps(/.*)?                                u:object_r:fingerprint_vendor_data_file:s0
 /data/vendor/egis(/.*)?                                 u:object_r:fingerprint_vendor_data_file:s0
 /data/vendor/fpc(/.*)?                                  u:object_r:fingerprint_vendor_data_file:s0
 /dev/esfp0                                              u:object_r:egis_device:s0
@@ -83,7 +83,7 @@
 
 
 # Sensors
-/vendor/bin/hw/motorola.hardware.sensorext-service                                    u:object_r:hal_sensors_default_exec:s0
+/vendor/bin/hw/motorola\.hardware\.sensorext-service                                  u:object_r:hal_sensors_default_exec:s0
 
 # Touch
 /(vendor|system/vendor)/bin/hw/vendor\.lineage\.touch@1\.0-service\.moto_sm8475       u:object_r:hal_lineage_touch_default_exec:s0
@@ -91,7 +91,7 @@
 
 # Thermal
 /dev/mmi_sys_temp                                       u:object_r:vendor_thermal_device:s0
-/sys/devices/platform/soc/[a-f0-9]+.qcom,spmi/spmi-[0-3]+/0-[0-4]+/[a-f0-9]+.qcom,spmi:qcom,pm8350b@[0-9]+:qcom,amoled-ecm@[a-f0-9]+/hwmon/hwmon[0-9]+/name                u:object_r:sysfs_thermal:s0
+/sys/devices/platform/soc/[a-f0-9]+\.qcom,spmi/spmi-[0-3]+/0-[0-4]+/[a-f0-9]+\.qcom,spmi:qcom,pm8350b@[0-9]+:qcom,amoled-ecm@[a-f0-9]+/hwmon/hwmon[0-9]+/name                u:object_r:sysfs_thermal:s0
 
 # Vendor init scripts
 /(vendor|system/vendor)/bin/init\.mmi\.laser\.sh                u:object_r:vendor_mmi_laser_exec:s0
@@ -100,7 +100,7 @@
 
 # Vibrator
 /dev/qcom_haptic                                                             u:object_r:aac_richtap_dev_device:s0
-/vendor/bin/hw/android.hardware.vibrator.service.moto_sm8475-richtap         u:object_r:hal_vibrator_default_exec:s0
+/vendor/bin/hw/android\.hardware\.vibrator\.service\.moto_sm8475-richtap     u:object_r:hal_vibrator_default_exec:s0
 
 # V4L2 Name
 /sys/devices/platform/soc/soc:qcom,cam-sync/video4linux/video([0-9])+/name                u:object_r:vendor_sysfs_v4l2_name:s0
@@ -113,4 +113,4 @@
 /sys/devices/platform/soc/soc:mmi,charger/power_supply/mmi_battery/wakeup[0-9]+(/.*)?     u:object_r:sysfs_wakeup:s0
 
 # Widevine
-/vendor/bin/copy_wvcert.sh u:object_r:widevinelicense_copy_exec:s0
+/vendor/bin/copy_wvcert\.sh u:object_r:widevinelicense_copy_exec:s0
