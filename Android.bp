@@ -7,6 +7,7 @@ soong_namespace {
     imports: [
         "vendor/motorola/sm8475-common",
         "kernel/motorola/sm8475-modules",
+        "hardware/qcom-caf/bootctrl",
     ],
 }
 
