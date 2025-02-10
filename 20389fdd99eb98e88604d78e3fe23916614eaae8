@@ -24,6 +24,30 @@
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     },
     {
+      "unresolved": false,
+      "key": {
+        "uuid": "e9eabe27_234a3e94",
+        "filename": "Android.bp",
+        "patchSetId": 2
+      },
+      "lineNbr": 9,
+      "author": {
+        "id": 17257
+      },
+      "writtenOn": "2025-02-10T21:28:48Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "63b6a1c2_68d1213d",
+      "range": {
+        "startLine": 9,
+        "startChar": 9,
+        "endLine": 9,
+        "endChar": 15
+      },
+      "revId": "20389fdd99eb98e88604d78e3fe23916614eaae8",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
       "unresolved": true,
       "key": {
         "uuid": "40f072fc_dcb7c49b",
@@ -37,6 +61,30 @@
       "writtenOn": "2025-02-07T14:40:43Z",
       "side": 1,
       "message": "leak 😞\nandroid::base::unique_fd t the rescue!",
+      "range": {
+        "startLine": 74,
+        "startChar": 0,
+        "endLine": 74,
+        "endChar": 15
+      },
+      "revId": "20389fdd99eb98e88604d78e3fe23916614eaae8",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "3d97539a_07707997",
+        "filename": "fingerprint/BiometricsFingerprint.h",
+        "patchSetId": 2
+      },
+      "lineNbr": 74,
+      "author": {
+        "id": 17257
+      },
+      "writtenOn": "2025-02-10T21:28:48Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "40f072fc_dcb7c49b",
       "range": {
         "startLine": 74,
         "startChar": 0,
