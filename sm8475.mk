@@ -68,9 +68,7 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PACKAGES += \
     android.hardware.boot@1.2-impl-qti:64 \
     android.hardware.boot@1.2-impl-qti.recovery:64 \
-    android.hardware.boot@1.2-service \
-    bootctrl.taro:64 \
-    bootctrl.taro.recovery:64
+    android.hardware.boot@1.2-service
 
 PRODUCT_PACKAGES_DEBUG += \
     bootctl
