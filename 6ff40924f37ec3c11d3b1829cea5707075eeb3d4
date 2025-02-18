@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "c8379126_962cee63",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 12
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 13648
+      },
+      "writtenOn": "2025-02-18T23:20:47Z",
+      "side": 1,
+      "message": "You derped this commit metadata. Either use original or create your own change-id.",
+      "revId": "6ff40924f37ec3c11d3b1829cea5707075eeb3d4",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
