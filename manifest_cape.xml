@@ -39,6 +39,11 @@
         <transport>hwbinder</transport>
     </hal>
     <hal format="hidl">
+        <name>android.hardware.nfc</name>
+        <transport>hwbinder</transport>
+        <fqname>@1.2::INfc/default</fqname>
+    </hal>
+    <hal format="hidl">
         <name>android.hardware.radio</name>
         <transport>hwbinder</transport>
         <fqname>@1.2::ISap/slot1</fqname>
