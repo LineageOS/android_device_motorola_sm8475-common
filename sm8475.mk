@@ -65,12 +65,11 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/public.libraries-qti.txt:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/public.libraries-qti.txt
 
 # Boot control
+PRODUCT_SOONG_NAMESPACES += hardware/qcom-caf/bootctrl
+
 PRODUCT_PACKAGES += \
-    android.hardware.boot@1.2-impl-qti:64 \
-    android.hardware.boot@1.2-impl-qti.recovery:64 \
-    android.hardware.boot@1.2-service \
-    bootctrl.taro:64 \
-    bootctrl.taro.recovery:64
+    android.hardware.boot-service.qti \
+    android.hardware.boot-service.qti.recovery
 
 PRODUCT_PACKAGES_DEBUG += \
     bootctl
