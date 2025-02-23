@@ -34,6 +34,7 @@ PRODUCT_ENFORCE_RRO_TARGETS := *
 
 PRODUCT_PACKAGES += \
     FrameworksResCommon_Sys \
+    SettingsCommon_Sys \
     SystemUIResCommon_Sys \
     TelephonyResCommon_Sys \
     WifiResCommon_Sys \
