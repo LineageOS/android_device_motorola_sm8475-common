@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "6d7444c2_ee4e6b1e",
+        "filename": "sm8475.mk",
+        "patchSetId": 3
+      },
+      "lineNbr": 68,
+      "author": {
+        "id": 4550
+      },
+      "writtenOn": "2025-03-01T21:29:54Z",
+      "side": 1,
+      "message": "Not needed, pick https://review.lineageos.org/c/LineageOS/android_hardware_qcom-caf_common/+/420251",
+      "revId": "3df9335448347397a1e2e908e54109374816272b",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
