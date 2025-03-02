@@ -35,22 +35,7 @@
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 
-/* ~170 HZ sine waveform */
-static const int8_t effect_0[] = {
-    17,  34,  50,  65,  79,  92,  103, 112, 119, 124,
-    127, 127, 126, 122, 116, 108, 98,  86,  73,  58,
-    42,  26,  9,   -8,  -25, -41, -57, -72, -85, -97,
-    -108, -116, -122, -126, -127, -127, -125, -120,
-    -113, -104, -93,  -80, -66, -51, -35, -18, -1,
-};
-
-static const int8_t effect_1[] = {
-    -1, -18, -35, -51, -66, -80, -93, -104, -113,
-    -120, -125, -127, -127, -126, -122, -116, -108,
-    -97, -85, -72, -57, -41, -25, -8, 9, 26, 42,
-    58, 73, 86, 98, 108, 116, 122, 126, 127, 127,
-    124, 119, 112, 103, 92, 79, 65, 50, 34, 17,
-};
+#include "generated_effects.h"
 
 static const int8_t primitive_0[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -70,22 +55,6 @@ static const int8_t primitive_2[] = {
     42,  26,  9,   -8,  -25, -41, -57, -72, -85, -97,
     -108, -116, -122, -126, -127, -127, -125, -120,
     -113, -104, -93,  -80, -66, -51, -35, -18, -1,
-};
-
-static const struct effect_stream effects[] = {
-    {
-        .effect_id = 0,
-        .length = ARRAY_SIZE(effect_0),
-        .play_rate_hz = 8000,
-        .data = effect_0,
-    },
-
-    {
-        .effect_id = 1,
-        .length = ARRAY_SIZE(effect_1),
-        .play_rate_hz = 8000,
-        .data = effect_1,
-    },
 };
 
 static const struct effect_stream primitives[] = {
@@ -123,11 +92,27 @@ const struct effect_stream *get_effect_stream(uint32_t effect_id)
                 return &primitives[i];
         }
     } else {
-        for (i = 0; i < ARRAY_SIZE(effects); i++) {
-            if (effect_id == effects[i].effect_id)
-                return &effects[i];
-        }
+        return get_effect_stream_strength(effect_id, 2);
     }
 
     return NULL;
+}
+
+
+const struct effect_stream *
+get_effect_stream_strength(uint32_t effect_id, uint8_t strength)
+{
+    const struct effect_stream *stream;
+
+    if (effect_id >= ARRAY_SIZE(effects))
+        return NULL;
+
+    if (strength >= ARRAY_SIZE(effects_click))
+        return NULL;
+
+    stream = effects[effect_id];
+    if (!stream)
+        return NULL;
+
+    return &stream[strength];
 }
