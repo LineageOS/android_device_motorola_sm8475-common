@@ -401,14 +401,6 @@ service vendor.charge_only_mode /vendor/bin/charge_only_mode
     capabilities SYS_BOOT
     disabled
 
-# bugreport is triggered by holding down volume down, volume up and power
-service bugreport /system/bin/dumpstate -d -p -B -z \
-        -o /data/user_de/0/com.android.shell/files/bugreports/bugreport
-    class main
-    disabled
-    oneshot
-    keycodes 114 115 116
-
 # touchRec
 service vendor.touchRec /vendor/bin/touchRec
     class late_start
