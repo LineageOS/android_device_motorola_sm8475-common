@@ -379,6 +379,7 @@ PRODUCT_PACKAGES += \
 # Vibrator
 $(call soong_config_set,qti_vibrator,effect_lib,libqtivibratoreffect.moto_sm8475-richtap)
 $(call soong_config_set,qti_vibrator,use_effect_stream,true)
+$(call soong_config_set,qti_vibrator,use_effect_stream_strength,true)
 
 PRODUCT_PACKAGES += \
     vendor.qti.hardware.vibrator.service
