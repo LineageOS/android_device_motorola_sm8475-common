@@ -12,7 +12,5 @@ cc_library_shared {
         "libcutils",
         "libutils",
     ],
-    header_libs: [
-        "libqtivibratoreffect_headers",
-    ],
+    export_include_dirs: ["."]
 }
