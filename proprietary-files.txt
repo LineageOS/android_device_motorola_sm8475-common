@@ -191,8 +191,7 @@ vendor/etc/cne/mwqem.conf
 vendor/etc/cne/profileMwqem.xml
 vendor/etc/default-permissions/com.qualcomm.qti.cne.xml
 vendor/etc/init/cnd.rc
-# libcne depends on libwpa_client, which is a gnu makefile target
-vendor/lib64/libcne.so;DISABLE_CHECKELF
+vendor/lib64/libcne.so
 vendor/lib64/libcneapiclient.so
 vendor/lib64/libcneoplookup.so
 vendor/lib64/libcneqmiutils.so
@@ -391,8 +390,7 @@ vendor/app/CACertService/CACertService.apk
 vendor/bin/edgnss-daemon
 vendor/bin/engine-service
 vendor/bin/loc_launcher
-# lowi-server depends on libwpa_client, which is a gnu makefile target
-vendor/bin/lowi-server;DISABLE_CHECKELF
+vendor/bin/lowi-server
 vendor/bin/mlid
 vendor/bin/xtra-daemon
 vendor/bin/xtwifi-client
@@ -783,8 +781,7 @@ vendor/bin/netmgrd
 vendor/bin/pd-mapper
 vendor/bin/port-bridge
 vendor/bin/qmi_motext_hook
-# qms depends on libwpa_client, which is a gnu makefile target
-vendor/bin/qms;DISABLE_CHECKELF
+vendor/bin/qms
 vendor/bin/qrtr-cfg
 vendor/bin/qrtr-lookup
 vendor/bin/qrtr-ns
