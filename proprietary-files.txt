@@ -875,8 +875,7 @@ vendor/lib64/deviceInfoServiceModuleNr.so
 vendor/lib64/libconfigdb.so
 vendor/lib64/liblog_vendor.so
 vendor/lib64/liblqe.so
-# libmdmcutback depends on libqsap_sdk, which is a gnu makefile target
-vendor/lib64/libmdmcutback.so;DISABLE_CHECKELF
+vendor/lib64/libmdmcutback.so
 vendor/lib64/libmdmdetect.so
 vendor/lib64/libmdmimgload.so
 vendor/lib64/libminkdescriptor.so
