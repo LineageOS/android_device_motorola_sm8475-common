@@ -42,7 +42,6 @@ libs_remove = (
     'libagm',
     'libpalclient',
     'libwpa_client',
-    'libqsap_sdk',
 )
 
 
