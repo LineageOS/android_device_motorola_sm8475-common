@@ -395,7 +395,6 @@ PRODUCT_ENFORCE_ARTIFACT_PATH_REQUIREMENTS := strict
 PRODUCT_PACKAGES += \
     android.hardware.wifi-service \
     hostapd \
-    libwpa_client \
     libwifi-hal-qcom \
     wpa_supplicant \
     wpa_supplicant.conf
