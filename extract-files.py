@@ -42,7 +42,6 @@ libs_remove = (
     'libats',
     'libagm',
     'libpalclient',
-    'libwpa_client',
 )
 
 
