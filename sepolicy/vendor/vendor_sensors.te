@@ -1,2 +1,0 @@
-allow vendor_sensors sysfs_dt_chosen:dir search;
-allow vendor_sensors sysfs_dt_chosen:file { r_file_perms watch_reads };

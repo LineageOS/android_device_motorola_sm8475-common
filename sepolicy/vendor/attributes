@@ -1,3 +1,0 @@
-attribute hal_panel;
-attribute hal_panel_client;
-attribute hal_panel_server;
