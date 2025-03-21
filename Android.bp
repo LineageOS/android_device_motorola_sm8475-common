@@ -28,17 +28,3 @@ install_symlink {
     installed_location: "rfs/msm/mpss/readonly/vendor/fsg",
     symlink_target: "/vendor/fsg",
 }
-
-install_symlink {
-    name: "vendor_super_fsg_mountpoint",
-    vendor: true,
-    installed_location: "super_fsg/.keep",
-    symlink_target: "/dev/null",
-}
-
-install_symlink {
-    name: "vendor_super_modem_mountpoint",
-    vendor: true,
-    installed_location: "super_modem/.keep",
-    symlink_target: "/dev/null",
-}
