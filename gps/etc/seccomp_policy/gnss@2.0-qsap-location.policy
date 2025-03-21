@@ -2,3 +2,5 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 gettid: 1
+sched_get_priority_min: 1
+sched_get_priority_max: 1
