@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "9feab537_5f27dcf8",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 13648
+      },
+      "writtenOn": "2025-03-21T16:25:54Z",
+      "side": 1,
+      "message": "Is there any point in reverting these commits alone? Why don\u0027t you simply squash all reverts and call it something like \"switch back to QTI vibrator\"?",
+      "revId": "2e536d1ee3c0a5244e08cbb6b02c8ee2b8257a64",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
