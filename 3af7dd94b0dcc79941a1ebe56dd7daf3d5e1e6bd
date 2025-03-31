@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "4fe6b177_8c498f42",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 13648
+      },
+      "writtenOn": "2025-03-31T15:46:19Z",
+      "side": 1,
+      "message": "This commit is already merged in the vibrator repo. Why don\u0027t you import effect with it already included?",
+      "revId": "3af7dd94b0dcc79941a1ebe56dd7daf3d5e1e6bd",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
