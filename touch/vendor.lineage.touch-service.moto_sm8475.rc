@@ -1,0 +1,7 @@
+on post-fs
+    chown system system /sys/class/touchscreen/primary/single_tap_enabled
+
+service vendor.touch-hal-moto_sm8475 /vendor/bin/hw/vendor.lineage.touch-service.moto_sm8475
+    class hal
+    user system
+    group system

@@ -23,38 +23,36 @@
 
 #include "TouchscreenGesture.h"
 
+namespace aidl {
 namespace vendor {
 namespace lineage {
 namespace touch {
-namespace V1_0 {
-namespace implementation {
 
-Return<void> TouchscreenGesture::getSupportedGestures(getSupportedGestures_cb resultCb) {
+ndk::ScopedAStatus TouchscreenGesture::getSupportedGestures(std::vector<Gesture>* _aidl_return) {
     std::vector<Gesture> gestures;
     for (int32_t i = 0; i < std::size(kGestureNodes); ++i) {
         gestures.push_back({i, kGestureNodes[i].name, kGestureNodes[i].keycode});
     }
-    resultCb(gestures);
-    return Void();
+
+    *_aidl_return = gestures;
+    return ndk::ScopedAStatus::ok();
 }
 
-Return<bool> TouchscreenGesture::setGestureEnabled(
-    const ::vendor::lineage::touch::V1_0::Gesture& gesture, bool enable) {
+ndk::ScopedAStatus TouchscreenGesture::setGestureEnabled(const Gesture& gesture, bool enable) {
     if (gesture.id >= std::size(kGestureNodes)) {
-        return false;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
     }
 
     if (!android::base::WriteStringToFile(enable ? kGestureNodes[gesture.id].enable : kGestureNodes[gesture.id].disable,
                                           kGestureNodes[gesture.id].path)) {
         LOG(ERROR) << "Writing to file " << kGestureNodes[gesture.id].path << " failed";
-        return false;
+        return ndk::ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
     }
 
-    return true;
+    return ndk::ScopedAStatus::ok();
 }
 
-}  // namespace implementation
-}  // namespace V1_0
 }  // namespace touch
 }  // namespace lineage
 }  // namespace vendor
+}  // namespace aidl

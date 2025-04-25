@@ -14,30 +14,26 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "vendor.lineage.touch@1.0-service.moto_sm8475"
-
-#include <android-base/logging.h>
-#include <hidl/HidlTransportSupport.h>
+#define LOG_TAG "lineage.touch-service.moto_sm8475"
 
 #include "TouchscreenGesture.h"
 
-using ::vendor::lineage::touch::V1_0::ITouchscreenGesture;
-using ::vendor::lineage::touch::V1_0::implementation::TouchscreenGesture;
+#include <android-base/logging.h>
+#include <android/binder_manager.h>
+#include <android/binder_process.h>
+
+using aidl::vendor::lineage::touch::TouchscreenGesture;
 
 int main() {
-    android::sp<ITouchscreenGesture> touchscreenGesture = new TouchscreenGesture();
+    binder_status_t status = STATUS_OK;
 
-    android::hardware::configureRpcThreadpool(1, true /*callerWillJoin*/);
+    ABinderProcess_setThreadPoolMaxThreadCount(0);
+    std::shared_ptr<TouchscreenGesture> tg = ndk::SharedRefBase::make<TouchscreenGesture>();
 
-    if (touchscreenGesture->registerAsService() != android::OK) {
-        LOG(ERROR) << "Cannot register touchscreen gesture HAL service.";
-        return 1;
-    }
+    const std::string instanceTg = std::string(TouchscreenGesture::descriptor) + "/default";
+    status = AServiceManager_addService(tg->asBinder().get(), instanceTg.c_str());
+    CHECK_EQ(status, STATUS_OK) << "Failed to add service " << instanceTg << " " << status;
 
-    LOG(DEBUG) << "Touchscreen Gesture HAL service ready.";
-
-    android::hardware::joinRpcThreadpool();
-
-    LOG(ERROR) << "Touchscreen HAL Gesture service failed to join thread pool.";
-    return 1;
+    ABinderProcess_joinThreadPool();
+    return EXIT_FAILURE;  // should not reach
 }

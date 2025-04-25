@@ -351,7 +351,7 @@ PRODUCT_PACKAGES += \
 # Touch
 PRODUCT_PACKAGES += \
     vendor.lineage.touch-service.motorola \
-    vendor.lineage.touch@1.0-service.moto_sm8475
+    vendor.lineage.touch-service.moto_sm8475
 
 $(call soong_config_set, MOTOROLA_TOUCH, HIGH_TOUCH_POLLING_PATH, /sys/class/touchscreen/primary/interpolation)
 
