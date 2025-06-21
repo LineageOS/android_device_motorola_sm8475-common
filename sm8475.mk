@@ -283,6 +283,9 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PACKAGES += \
     rfs_msm_mpss_readonly_vendor_fsg_symlink
 
+# Recovery
+$(call soong_config_set_bool,recovery,target_recovery_uses_qti_drm,true)
+
 # Sensors
 PRODUCT_PACKAGES += \
     sensors.moto_ext \
