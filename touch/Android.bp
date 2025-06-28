@@ -21,7 +21,6 @@ cc_binary {
     relative_install_path: "hw",
     proprietary: true,
     srcs: [
-        "HighTouchPollingRate.cpp",
         "TouchscreenGesture.cpp",
         "service.cpp",
     ],
