@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "bf66b399_0bf18899",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 33800
+      },
+      "writtenOn": "2025-07-14T11:03:01Z",
+      "side": 1,
+      "message": "Also, for AIDL it is already defined in vendor/etc/init/android.hardware.sensors-service-multihal.rc",
+      "revId": "c01288a0a520a38f5ae4d3ba611fd5a72e4c0192",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
