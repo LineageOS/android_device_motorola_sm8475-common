@@ -27,9 +27,6 @@
 
 import /system/etc/init/init.recovery.${ro.boot.device}.rc
 
-on early-init
-    write /proc/sys/kernel/firmware_config/force_sysfs_fallback 1
-
 on init
     setprop sys.usb.configfs 1
 
