@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "be873f14_1af4aae6",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 33800
+      },
+      "writtenOn": "2025-08-19T21:14:21Z",
+      "side": 1,
+      "message": "Builds, but needed to be verified on real device. \nI\u0027ll check on my SM6475 device, sepolicy is almost same as sm8475.",
+      "revId": "40d892c3184ea2e8014efd70a8ff3f2ccf4ca796",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
