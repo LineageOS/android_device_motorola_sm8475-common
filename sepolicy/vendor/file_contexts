@@ -66,7 +66,6 @@
 
 # NFC
 /dev/st21nfc                                                                  u:object_r:nfc_device:s0
-/vendor/bin/hw/android\.hardware\.nfc-service\.st                             u:object_r:hal_nfc_default_exec:s0
 
 # Powershare
 /(vendor|system/vendor)/bin/hw/vendor\.lineage\.powershare@1\.0-service\.eqs        u:object_r:hal_lineage_powershare_default_exec:s0
