@@ -94,10 +94,6 @@ blob_fixups: blob_fixups_user_type = {
         'libcodec2_shim.so'
     ),
     'vendor/lib64/sensors.moto.so': blob_fixup().add_needed('libbase_shim.so'),
-    (
-        'vendor/etc/seccomp_policy/modemManager.policy',
-        'vendor/etc/seccomp_policy/sensors-qesdk.policy',
-    ): blob_fixup().add_line_if_missing('gettid: 1'),
     'vendor/etc/media_codecs_cape.xml': blob_fixup().regex_replace(
         '.*media_codecs_(google_audio|google_c2|google_telephony|google_video|vendor_audio|dolby_audio).*\n', ''
     ),

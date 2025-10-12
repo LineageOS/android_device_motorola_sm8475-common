@@ -1,7 +1,7 @@
-From c930a680ac9a684f07c3126ae0d42dcfa6190004 Mon Sep 17 00:00:00 2001
+From 643f28a39a72c0b69d7f1d12d96296e253b48b2c Mon Sep 17 00:00:00 2001
 From: Vachounet <vachounet@live.fr>
 Date: Wed, 27 Jan 2021 23:28:48 +0100
-Subject: [PATCH 2/5] ImsConfigImpl: don't call setSubscriptionProperty for
+Subject: [PATCH 2/4] ImsConfigImpl: don't call setSubscriptionProperty for
  wfc_ims_mdn
 
 ---
@@ -9,16 +9,16 @@ Subject: [PATCH 2/5] ImsConfigImpl: don't call setSubscriptionProperty for
  1 file changed, 70 deletions(-)
 
 diff --git a/smali/org/codeaurora/ims/ImsConfigImpl.smali b/smali/org/codeaurora/ims/ImsConfigImpl.smali
-index 99b2bba..c7c610e 100644
+index ba4cbfd..14d5a35 100644
 --- a/smali/org/codeaurora/ims/ImsConfigImpl.smali
 +++ b/smali/org/codeaurora/ims/ImsConfigImpl.smali
-@@ -2981,76 +2981,6 @@
+@@ -3096,76 +3096,6 @@
  
-     .line 761
+     .line 793
      :cond_2
 -    if-ne p1, v2, :cond_3
 -
--    .line 762
+-    .line 794
 -    new-instance v0, Ljava/lang/StringBuilder;
 -
 -    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
@@ -43,7 +43,7 @@ index 99b2bba..c7c610e 100644
 -
 -    invoke-static {p0, v0}, Lcom/qualcomm/ims/utils/Log;->i(Ljava/lang/Object;Ljava/lang/String;)V
 -
--    .line 766
+-    .line 798
 -    :try_start_0
 -    iget v0, p0, Lorg/codeaurora/ims/ImsConfigImpl;->mSubId:I
 -
@@ -53,14 +53,14 @@ index 99b2bba..c7c610e 100644
 -    :try_end_0
 -    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 -
--    .line 770
+-    .line 802
 -    goto :goto_1
 -
--    .line 768
+-    .line 800
 -    :catch_0
 -    move-exception v0
 -
--    .line 769
+-    .line 801
 -    .local v0, "e":Ljava/lang/Exception;
 -    new-instance v1, Ljava/lang/StringBuilder;
 -
@@ -82,13 +82,13 @@ index 99b2bba..c7c610e 100644
 -
 -    invoke-static {p0, v1}, Lcom/qualcomm/ims/utils/Log;->e(Ljava/lang/Object;Ljava/lang/String;)V
 -
--    .line 774
+-    .line 806
 -    .end local v0    # "e":Ljava/lang/Exception;
 -    :cond_3
 -    :goto_1
-     const/16 v3, 0x2c
+     const/4 v6, 0x0
  
-     const/4 v5, 0x1
+     const/4 v7, 0x0
 -- 
-2.45.2
+2.49.0
 
