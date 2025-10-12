@@ -1,4 +1,4 @@
-# All unpinned blobs below are extracted from 14-U1SQS34.52-21-1-15 b8994a-9634a release-keys.
+# All unpinned blobs below are extracted from 15 V1SQS35H.58-10-8-1 ae728-ff9c63 release-keys.
 
 # ADSP
 vendor/bin/adsprpcd
@@ -237,6 +237,7 @@ vendor/lib64/libcv_common.so
 vendor/lib64/libcvp2_1.so
 
 # Diag
+system/lib64/vendor.qti.diaghal-V1-ndk.so:system_ext/lib64/vendor.qti.diaghal-V1-ndk.so
 system_ext/lib64/vendor.qti.diaghal@1.0.so
 vendor/bin/diag-router
 vendor/etc/init/vendor.qti.diag.rc
@@ -779,7 +780,6 @@ product/framework/uimgbamanagerlibrary.jar
 product/framework/uimservicelibrary.jar
 
 # RIL - system_ext
-system_ext/app/QtiTelephony/QtiTelephony.apk
 system_ext/app/QtiTelephonyService/QtiTelephonyService.apk
 system_ext/etc/permissions/qcrilhook.xml
 system_ext/etc/permissions/qti_libpermissions.xml
@@ -787,6 +787,7 @@ system_ext/etc/permissions/qti_permissions.xml
 system_ext/etc/permissions/telephony_system-ext_privapp-permissions-qti.xml
 system_ext/framework/qcrilhook.jar
 system_ext/priv-app/qcrilmsgtunnel/qcrilmsgtunnel.apk
+system_ext/priv-app/QtiTelephony/QtiTelephony.apk
 
 # RIL
 vendor/app/IWlanService/IWlanService.apk
@@ -866,6 +867,15 @@ vendor/etc/qcril_database/upgrade/ecc/43_version_qcrildb.sql;FILEGROUP=proprieta
 vendor/etc/qcril_database/upgrade/ecc/44_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
 vendor/etc/qcril_database/upgrade/ecc/45_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
 vendor/etc/qcril_database/upgrade/ecc/46_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
+vendor/etc/qcril_database/upgrade/ecc/48_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
+vendor/etc/qcril_database/upgrade/ecc/49_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
+vendor/etc/qcril_database/upgrade/ecc/50_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
+vendor/etc/qcril_database/upgrade/ecc/51_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
+vendor/etc/qcril_database/upgrade/ecc/52_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
+vendor/etc/qcril_database/upgrade/ecc/53_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
+vendor/etc/qcril_database/upgrade/ecc/54_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
+vendor/etc/qcril_database/upgrade/ecc/55_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
+vendor/etc/qcril_database/upgrade/ecc/56_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
 vendor/etc/qcril_database/upgrade/ecc/4_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
 vendor/etc/qcril_database/upgrade/ecc/5_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
 vendor/etc/qcril_database/upgrade/ecc/6_version_qcrildb.sql;FILEGROUP=proprietary_rildb_ecc_sql_files
