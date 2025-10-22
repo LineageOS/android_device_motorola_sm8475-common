@@ -166,11 +166,6 @@
         <fqname>@1.0::IEid/default</fqname>
     </hal>
     <hal format="hidl">
-        <name>vendor.qti.hardware.embmssl</name>
-        <transport>hwbinder</transport>
-        <fqname>@1.1::IEmbms/embmsslServer0</fqname>
-    </hal>
-    <hal format="hidl">
         <name>vendor.qti.hardware.iop</name>
         <transport>hwbinder</transport>
         <fqname>@2.0::IIop/default</fqname>
