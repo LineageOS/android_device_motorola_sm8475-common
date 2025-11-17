@@ -63,12 +63,6 @@
         <fqname>@1.1::IOffloadControl/default</fqname>
     </hal>
     <hal format="hidl">
-        <name>com.motorola.hardware.biometric.fingerprint</name>
-        <transport>hwbinder</transport>
-        <fqname>@1.0::IMotoFingerPrint/default</fqname>
-        <fqname>@1.0::IMotoFingerPrintSensorTest/default</fqname>
-    </hal>
-    <hal format="hidl">
         <name>com.qualcomm.qti.dpm.api</name>
         <transport>hwbinder</transport>
         <fqname>@1.0::IdpmQmi/dpmQmiService</fqname>
