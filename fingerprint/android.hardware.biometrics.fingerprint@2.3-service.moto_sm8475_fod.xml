@@ -9,11 +9,15 @@
         </interface>
     </hal>
     <hal format="hidl">
-        <name>vendor.egistec.hardware.fingerprint</name>
+        <name>com.motorola.hardware.biometric.fingerprint</name>
         <transport>hwbinder</transport>
-        <version>4.0</version>
+        <version>1.0</version>
         <interface>
-            <name>IBiometricsFingerprintRbs</name>
+            <name>IMotoFingerPrint</name>
+            <instance>default</instance>
+        </interface>
+        <interface>
+            <name>IMotoFingerPrintSensorTest</name>
             <instance>default</instance>
         </interface>
     </hal>
