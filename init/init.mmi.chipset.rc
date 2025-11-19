@@ -5,9 +5,6 @@ on post-fs
     # MOT_LED_CALIBRATION
     chown camera camera /mnt/vendor/persist/camera/mot_ledcal
 
-on early-init
-    exec u:r:vendor_modprobe:s0 -- /vendor/bin/modprobe -a -d /vendor/lib/modules exfat
-
 on fs
     insmod /vendor/lib/modules/bm_adsp_ulog.ko
     insmod /vendor/lib/modules/mmi_charger.ko
