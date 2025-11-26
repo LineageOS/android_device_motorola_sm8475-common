@@ -16,6 +16,23 @@
       "message": "What for?",
       "revId": "e9ea754a1e8ca68f93c8443ee97ffec60eb98df7",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "41f90da5_24425b8f",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 19979
+      },
+      "writtenOn": "2025-11-26T18:40:02Z",
+      "side": 1,
+      "message": "Adsp fails to load on sm7435 devices",
+      "revId": "e9ea754a1e8ca68f93c8443ee97ffec60eb98df7",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
