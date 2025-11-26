@@ -16,6 +16,24 @@
       "message": "I remember that this is already sent by some vendor script.",
       "revId": "decea18981b5d93856669b9dc511307448ef6904",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "304957dd_642f9a0b",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 19979
+      },
+      "writtenOn": "2025-11-26T17:54:24Z",
+      "side": 1,
+      "message": "This is needed after moving init scripts back to vendor like mike did for sm6375-common",
+      "parentUuid": "46fc11fb_fbdad937",
+      "revId": "decea18981b5d93856669b9dc511307448ef6904",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
