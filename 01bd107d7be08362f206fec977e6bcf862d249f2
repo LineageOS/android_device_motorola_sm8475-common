@@ -16,6 +16,23 @@
       "message": "Is this needed for your SoC?",
       "revId": "01bd107d7be08362f206fec977e6bcf862d249f2",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "37805c49_f3fbe726",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 19979
+      },
+      "writtenOn": "2025-11-26T18:03:59Z",
+      "side": 1,
+      "message": "Yes",
+      "revId": "01bd107d7be08362f206fec977e6bcf862d249f2",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
