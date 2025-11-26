@@ -50,6 +50,23 @@
       "message": "Alternative solution is\n\nhttps://review.lineageos.org/c/LineageOS/android_device_motorola_sm8550-common/+/431838 and https://review.lineageos.org/c/LineageOS/android_device_motorola_sm8550-common/+/432762",
       "revId": "e9ea754a1e8ca68f93c8443ee97ffec60eb98df7",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "72ad9b75_8e9c34a1",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 19979
+      },
+      "writtenOn": "2025-11-26T20:40:21Z",
+      "side": 1,
+      "message": "This also contains a mismerge now that I\u0027m looking at it, the prop should not be removed",
+      "revId": "e9ea754a1e8ca68f93c8443ee97ffec60eb98df7",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
