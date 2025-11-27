@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "e8a38aa7_70828d47",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 33800
+      },
+      "writtenOn": "2025-11-27T22:33:15Z",
+      "side": 1,
+      "message": "Was reverted\nhttps://github.com/LineageOS/android_device_motorola_sm8475-common/commit/ae7cb5a786a48d56353b85247855d1c51351dfe9",
+      "revId": "f04c5697d4b146d665ff1486c7c064b0ff66a9b0",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
