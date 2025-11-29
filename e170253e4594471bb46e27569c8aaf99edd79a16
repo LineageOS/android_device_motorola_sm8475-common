@@ -16,6 +16,24 @@
       "message": "This belongs to 23.0 only.",
       "revId": "e170253e4594471bb46e27569c8aaf99edd79a16",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "c0b1dddd_e513fe32",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 19979
+      },
+      "writtenOn": "2025-11-29T14:42:46Z",
+      "side": 1,
+      "message": "Yes, I pushed it in this topic since the repo doesn\u0027t contain a lineage-23.0 branch. I was upstreaming commits I applied since I used this as a base for my sm7435-common repo",
+      "parentUuid": "f7129465_74392c35",
+      "revId": "e170253e4594471bb46e27569c8aaf99edd79a16",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
