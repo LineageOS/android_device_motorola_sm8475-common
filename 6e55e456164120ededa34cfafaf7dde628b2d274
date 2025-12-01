@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "e54cdbcc_60f4a828",
+        "filename": "BoardConfigCommon.mk",
+        "patchSetId": 2
+      },
+      "lineNbr": 66,
+      "author": {
+        "id": 4550
+      },
+      "writtenOn": "2025-12-01T10:22:41Z",
+      "side": 1,
+      "message": "I don\u0027t think that\u0027s correct for this tree",
+      "range": {
+        "startLine": 66,
+        "startChar": 99,
+        "endLine": 66,
+        "endChar": 105
+      },
+      "revId": "6e55e456164120ededa34cfafaf7dde628b2d274",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
