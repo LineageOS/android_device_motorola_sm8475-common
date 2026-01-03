@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "5620dd0a_c93fec52",
+        "filename": "proprietary-files.txt",
+        "patchSetId": 3
+      },
+      "lineNbr": 269,
+      "author": {
+        "id": 35783
+      },
+      "writtenOn": "2026-01-03T19:19:21Z",
+      "side": 1,
+      "message": "32 bit libvmmem should not be present",
+      "revId": "dd643a5d33bfbe926bf21b409ce70443d3c93530",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
