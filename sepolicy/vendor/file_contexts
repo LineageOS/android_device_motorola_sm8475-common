@@ -3,8 +3,5 @@
 /(mnt/vendor/persist|persist)/chargeonly(/.*)?          u:object_r:persist_chargeonly_file:s0
 /(vendor|system/vendor)/bin/charge_only_mode            u:object_r:charge_only_exec:s0
 
-# Fingerprint
-/(vendor|system/vendor)/bin/hw/android\.hardware\.biometrics\.fingerprint@2\.3-service\.moto_sm8475_fod u:object_r:hal_fingerprint_default_exec:s0
-
 # Touch
 /vendor/bin/hw/vendor\.lineage\.touch-service\.moto_sm8475 u:object_r:hal_lineage_touch_default_exec:s0
