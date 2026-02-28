@@ -63,7 +63,6 @@ vendor/lib/rfsa/adsp/libDspIOProxy_skel.so
 vendor/lib/rfsa/adsp/libQ6MSFR_manager_skel.so
 vendor/lib/rfsa/adsp/libQnnHtpAltPrepV69Skel.so
 vendor/lib/rfsa/adsp/libQnnHtpV69Skel.so
-vendor/lib/rfsa/adsp/libSnpeHtpV68Skel.so
 vendor/lib/rfsa/adsp/libSnpeHtpV69Skel.so
 vendor/lib/rfsa/adsp/libSuperSensor_skel.so
 vendor/lib/rfsa/adsp/libVppFrcQnnHtp.so
@@ -79,10 +78,6 @@ vendor/lib/rfsa/adsp/libhalide_hexagon_remote_skel.so
 vendor/lib/rfsa/adsp/libmobilenet_dsp_frc.so
 vendor/lib/rfsa/adsp/libmobilenet_dsp_frc_networks.so
 vendor/lib/rfsa/adsp/libscveT2T_skel.so
-vendor/lib/rfsa/adsp/libsnpe_dsp_v65_domains_v2_skel.so
-vendor/lib/rfsa/adsp/libsnpe_dsp_v66_domains_v2_skel.so
-vendor/lib/rfsa/adsp/libtracker_6dof_skel_8250.so
-vendor/lib/rfsa/adsp/libtracker_6dof_skel_8350.so
 vendor/lib/rfsa/adsp/libvpp_ais_networks.so
 vendor/lib/rfsa/adsp/libvpp_vqa_networks.so
 vendor/lib/rfsa/adsp/libvpt_action_recognition.so
@@ -93,7 +88,6 @@ vendor/lib64/libadm.so
 vendor/lib64/libadsprpc.so
 vendor/lib64/libaualgo_foundation.so
 vendor/lib64/libaudio_log_utils.so
-vendor/lib64/libdapparamstorage.so
 vendor/lib64/libmcs.so
 vendor/lib64/libpal_net_if.so
 vendor/lib64/libqtigefar.so
@@ -138,8 +132,6 @@ vendor/lib64/vendor.qti.hardware.cacert@1.0.so
 
 # Camera - ICP
 vendor/firmware/CAMERA_ICP.elf
-vendor/firmware/CAMERA_ICP_170.elf
-vendor/firmware/CAMERA_ICP_480.elf
 
 # Camera - Motorola
 vendor/bin/hw/motorola.hardware.camera.desktop@2.0-service
@@ -257,15 +249,6 @@ vendor/lib64/libhdr_tm.so
 vendor/lib64/libmemutils.so
 
 # Display - SDM
-vendor/etc/display/DPU660.xml
-vendor/etc/display/DPU670.xml
-vendor/etc/display/DPU720.xml
-vendor/etc/display/DPU7__.xml
-vendor/etc/display/DPU820.xml
-vendor/etc/display/DPU830.xml
-vendor/etc/display/DPU860.xml
-vendor/etc/display/DPU8__.xml
-vendor/etc/display/DPU9__.xml
 vendor/etc/display/advanced_sf_offsets.xml
 vendor/etc/display/thermallevel_to_fps.xml
 vendor/lib64/libdisplayqos.so
@@ -509,9 +492,7 @@ vendor/bin/init.qti.media.sh
 vendor/etc/init/init.qti.media.rc
 vendor/etc/init/vendor.qti.media.c2@1.0-service.rc
 vendor/etc/init/vendor.qti.media.c2audio@1.0-service.rc
-vendor/etc/seccomp_policy/c2audio.vendor.base-arm.policy
 vendor/etc/seccomp_policy/c2audio.vendor.base-arm64.policy
-vendor/etc/seccomp_policy/c2audio.vendor.ext-arm.policy
 vendor/etc/seccomp_policy/c2audio.vendor.ext-arm64.policy
 vendor/etc/seccomp_policy/codec2.vendor.base-arm64.policy
 vendor/etc/seccomp_policy/codec2.vendor.ext-arm64.policy
@@ -1032,14 +1013,6 @@ vendor/lib64/vendor.qti.hardware.trustedui@1.0.so
 vendor/lib64/vendor.qti.hardware.trustedui@1.1.so
 vendor/lib64/vendor.qti.hardware.trustedui@1.2.so
 
-# Venus firmware
-vendor/firmware/venus_4mb.mbn
-vendor/firmware/venus_4mb_unsigned.mbn
-vendor/firmware/venus_4mb_v6.mbn
-vendor/firmware/venus_4mb_v7.mbn
-vendor/firmware/venus_v6.mbn
-vendor/firmware/venus_v7.mbn
-
 # VPP
 vendor/bin/hw/qconfigservice
 vendor/bin/vppservice
@@ -1069,4 +1042,3 @@ vendor/lib64/libwvhidl.so
 
 # WiFi
 vendor/bin/cnss-daemon
-vendor/etc/init/init.vendor.wlan.rc
