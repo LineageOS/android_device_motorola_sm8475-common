@@ -86,15 +86,11 @@ blob_fixups: blob_fixups_user_type = {
     'vendor/bin/qcc-trd': blob_fixup().replace_needed(
         'libgrpc++_unsecure.so', 'libgrpc++_unsecure_prebuilt.so'
     ),
-    'vendor/lib64/libmotext_inf.so': blob_fixup().remove_needed('libril.so'),
     'system_ext/priv-app/ims/ims.apk': blob_fixup().apktool_patch(
         'ims-patches'
     ),
     'vendor/lib64/vendor.libdpmframework.so': blob_fixup().add_needed(
         'libhidlbase_shim.so'
-    ),
-    'vendor/lib64/libqcodec2_core.so': blob_fixup().add_needed(
-        'libcodec2_shim.so'
     ),
     'vendor/lib64/sensors.moto.so': blob_fixup().add_needed('libbase_shim.so'),
     'vendor/etc/media_codecs_cape.xml': blob_fixup().regex_replace(
