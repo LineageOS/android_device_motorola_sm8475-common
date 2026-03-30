@@ -13,6 +13,8 @@ cc_library_shared {
         "liblog",
         "libloc_core",
         "libgps.utils",
+        "libxml2",
+        "libloc_base_util",
     ],
 
     srcs: [
@@ -21,14 +23,19 @@ cc_library_shared {
         "Agps.cpp",
         "XtraSystemStatusObserver.cpp",
         "NativeAgpsHandler.cpp",
+        "XmlFileParser.cpp",
     ],
 
-    cflags: ["-fno-short-enums"] + GNSS_CFLAGS,
+    cflags: ["-fno-short-enums",
+             "-D_ANDROID_",
+    ] + GNSS_CFLAGS,
+
     header_libs: [
         "libgps.utils_headers",
         "libloc_core_headers",
         "libloc_pla_headers",
         "liblocation_api_headers",
+        "libloc_base_util_headers",
     ],
 
 }

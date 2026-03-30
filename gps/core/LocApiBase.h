@@ -28,41 +28,10 @@
  */
 
  /*
- Changes from Qualcomm Innovation Center are provided under the following license:
-
- Copyright (c) 2022, 2023 Qualcomm Innovation Center, Inc. All rights reserved.
-
- Redistribution and use in source and binary forms, with or without
- modification, are permitted (subject to the limitations in the
- disclaimer below) provided that the following conditions are met:
-
- * Redistributions of source code must retain the above copyright
- notice, this list of conditions and the following disclaimer.
-
- * Redistributions in binary form must reproduce the above
- copyright notice, this list of conditions and the following
- disclaimer in the documentation and/or other materials provided
- with the distribution.
-
- * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- contributors may be used to endorse or promote products derived
- from this software without specific prior written permission.
-
- NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
 
 #ifndef LOC_API_BASE_H
 #define LOC_API_BASE_H
@@ -75,18 +44,17 @@
 #include <MsgTask.h>
 #include <LocSharedLock.h>
 #include <log_util.h>
-#ifdef NO_UNORDERED_SET_OR_MAP
-    #include <map>
-    #define unordered_map map
-#else
-    #include <unordered_map>
-#endif
+#include <unordered_map>
 #include <inttypes.h>
 #include <functional>
 
+using std::string;
 using namespace loc_util;
 
 namespace loc_core {
+
+#define ATL_OPEN_DEFAULT_TIMEOUT_MSEC   15000
+#define ATL_CLOSE_DEFAULT_TIMEOUT_MSEC   5000
 
 class ContextBase;
 struct LocApiResponse;
@@ -112,14 +80,12 @@ class LocAdapterBase;
 struct LocSsrMsg;
 struct LocOpenMsg;
 
-typedef struct
-{
+typedef struct {
     uint32_t accumulatedDistance;
     uint32_t numOfBatchedPositions;
 } LocApiBatchData;
 
-typedef struct
-{
+typedef struct {
     uint32_t hwId;
 } LocApiGeofenceData;
 
@@ -139,14 +105,14 @@ public:
     inline LocApiProxyBase() {}
     inline virtual ~LocApiProxyBase() {}
     inline virtual void* getSibling2() { return NULL; }
-    inline virtual double getGloRfLoss(uint32_t left __unused,
-            uint32_t center __unused, uint32_t right __unused, uint8_t gloFrequency __unused) { return 0.0; }
-    inline virtual bool getSatellitePVT(GnssSvPolynomial& svPolynomial __unused,
-            GnssSvMeasurementHeader& svMeasSetHeader __unused,
-            GnssMeasurementsData& measurementData __unused) { return false; }
-    inline virtual float getGeoidalSeparation(double latitude __unused, double longitude __unused) { return 0.0; }
-    inline virtual bool checkFeatureStatus(int* fids __unused, LocFeatureStatus* status __unused,
-            uint32_t idCount __unused, bool directQwesCall __unused = false) {return false;}
+    inline virtual double getGloRfLoss(uint32_t left,
+            uint32_t center, uint32_t right, uint8_t gloFrequency) { return 0.0; }
+    inline virtual bool getSatellitePVT(GnssSvPolynomial& svPolynomial,
+            GnssSvMeasurementHeader& svMeasSetHeader,
+            GnssMeasurementsData& measurementData) { return false; }
+    inline virtual float getGeoidalSeparation(double latitude, double longitude) { return 0.0; }
+    inline virtual bool checkFeatureStatus(int* fids, LocFeatureStatus* status,
+            uint32_t idCount, bool directQwesCall = false) {return false;}
 };
 
 class LocApiBase {
@@ -170,6 +136,7 @@ protected:
     LOC_API_ADAPTER_EVENT_MASK_T getEvtMask();
     LOC_API_ADAPTER_EVENT_MASK_T mMask;
     uint32_t mNmeaMask;
+
     LocApiBase(LOC_API_ADAPTER_EVENT_MASK_T excludedMask,
                ContextBase* context = NULL);
     inline virtual ~LocApiBase() {
@@ -181,6 +148,7 @@ protected:
     }
     bool isInSession();
     const LOC_API_ADAPTER_EVENT_MASK_T mExcludedMask;
+    EngineLockState mEngineLockState;
 
 public:
     bool isMaster();
@@ -230,12 +198,15 @@ public:
     void reportXtraServer(const char* url1, const char* url2,
                           const char* url3, const int maxlength);
     void reportLocationSystemInfo(const LocationSystemInfo& locationSystemInfo);
+    void reportDcMessage(const GnssDcReportInfo& dcReport);
+    void reportSignalTypeCapabilities(const GnssCapabNotification& gnssCapabNotification);
     void requestXtraData();
     void requestTime();
     void requestLocation();
     void requestATL(int connHandle, LocAGpsType agps_type,
-                    LocApnTypeMask apn_type_mask, LocSubId sub_id=LOC_DEFAULT_SUB);
-    void releaseATL(int connHandle);
+                    LocApnTypeMask apn_type_mask, SubId sub_id=DEFAULT_SUB,
+                    uint32_t timeout=ATL_OPEN_DEFAULT_TIMEOUT_MSEC);
+    void releaseATL(int connHandle, uint32_t timeout=ATL_CLOSE_DEFAULT_TIMEOUT_MSEC);
     void requestNiNotify(GnssNiNotification &notify, const void* data,
                          const LocInEmergency emergencyState);
     void reportGnssMeasurements(GnssMeasurements& gnssMeasurements, int msInWeek);
@@ -252,6 +223,7 @@ public:
     void sendNfwNotification(GnssNfwNotification& notification);
     void reportGnssConfig(uint32_t sessionId, const GnssConfig& gnssConfig);
     void reportLatencyInfo(GnssLatencyInfo& gnssLatencyInfo);
+    void reportEngineLockStatus(EngineLockState engineLockState);
     void reportEngDebugDataInfo(GnssEngineDebugDataInfo& gnssEngineDebugDataInfo);
     void reportQwesCapabilities
     (
@@ -268,6 +240,10 @@ public:
     void reportLocations(Location* locations, size_t count, BatchingMode batchingMode);
     void reportCompletedTrips(uint32_t accumulated_distance);
     void handleBatchStatusEvent(BatchingStatus batchStatus);
+    void reportModemGnssQesdkFeatureStatus(const ModemGnssQesdkFeatureMask& mask);
+    void reportNtnStatusEvent(LocationError status,
+            const GnssSignalTypeMask& gpsSignalTypeConfigMask, bool isSetResponse);
+    void reportNtnConfigUpdateEvent(const GnssSignalTypeMask& gpsSignalTypeConfigMask);
 
     // downward calls
     virtual void* getSibling();
@@ -313,6 +289,8 @@ public:
 
     virtual void getWwanZppFix();
     virtual void getBestAvailableZppFix();
+    virtual bool getBestAvailableZppFixSync(LocGpsLocation &zppLoc,
+            LocPosTechMask &tech_mask, float* vertUnc = nullptr);
     virtual LocationError setGpsLockSync(GnssConfigGpsLock lock);
     virtual void requestForAidingData(GnssAidingDataSvMask svDataMask);
     virtual LocationError setXtraVersionCheckSync(uint32_t check);
@@ -379,9 +357,11 @@ public:
     void updateNmeaMask(uint32_t mask);
 
     virtual void updateSystemPowerState(PowerStateType systemPowerState);
+    virtual void updatePowerConnectState(bool connected);
 
     virtual void configRobustLocation(bool enable, bool enableForE911,
-                                      LocApiResponse* adapterResponse=nullptr);
+                                      LocApiResponse* adapterResponse = nullptr,
+                                      bool enableForE911Valid = false);
     virtual void getRobustLocationConfig(uint32_t sessionId, LocApiResponse* adapterResponse);
     virtual void configMinGpsWeek(uint16_t minGpsWeek,
                                   LocApiResponse* adapterResponse=nullptr);
@@ -395,9 +375,27 @@ public:
                                               LocApiResponse* adapterResponse=nullptr);
     virtual void getConstellationMultiBandConfig(uint32_t sessionId,
                                         LocApiResponse* adapterResponse=nullptr);
+    inline EngineLockState getEngineLockState() {
+        return mEngineLockState;
+    }
+
+    inline void setEngineLockState(EngineLockState engineLockState) {
+        mEngineLockState = engineLockState;
+    }
+
+    virtual void setTribandState(bool enabled);
+
+    virtual void configPrecisePositioning(uint32_t featureId, bool enable,
+            const std::string& appHash, LocApiResponse* adapterResponse=nullptr);
+    virtual void configMerkleTree(mgpOsnmaPublicKeyAndMerkleTreeStruct* merkleTree,
+            LocApiResponse* adapterResponse=nullptr);
+    virtual void configOsnmaEnablement(bool enable, LocApiResponse* adapterResponse=nullptr);
+    virtual void getNtnConfigSignalMask(LocApiResponse* adapterResponse = nullptr);
+    virtual void setNtnConfigSignalMask(GnssSignalTypeMask gpsSignalTypeConfigMask,
+            LocApiResponse* adapterResponse = nullptr);
 };
 
-class ElapsedRealtimeEstimator {
+class RealtimeEstimator {
     typedef struct {
         GPSTimeStruct gpsTime;
         int64_t qtimerTick;
@@ -418,7 +416,7 @@ private:
     GpsTimeQtimerTickPair mTimePairMeasReport;
 
 public:
-    inline ElapsedRealtimeEstimator(int64_t travelTimeNanosEstimate) :
+    inline RealtimeEstimator(int64_t travelTimeNanosEstimate) :
             mInitialTravelTime(travelTimeNanosEstimate) {
         reset();
     }
@@ -427,9 +425,11 @@ public:
     inline int64_t getElapsedRealtimeUncNanos() { return 5000000;}
     void reset();
     static int64_t getElapsedRealtimeQtimer(int64_t qtimerTicksAtOrigin);
-    bool getElapsedRealtimeForGpsTime(const GpsLocationExtended& locationExtended,
-                                      int64_t &elapsedTime, float & elpasedTimeUnc);
-    void saveGpsTimeAndQtimerPairInPvtReport(const GpsLocationExtended& locationExtended);
+    bool fillAdditionalTimestamps(const GpsLocationExtended& locationExtended,
+                                      int64_t &elapsedTime, float & elpasedTimeUnc,
+                                      uint64_t &gptpTime, bool &gPTPValidity);
+    void saveGpsTimeAndQtimerPairInPvtReport(const GpsLocationExtended& locationExtended,
+            enum loc_sess_status status);
     void saveGpsTimeAndQtimerPairInMeasReport(const GnssSvMeasurementSet& svMeasurementSet);
     static bool getCurrentTime(struct timespec& currentTime, int64_t& sinceBootTimeNanos);
 };

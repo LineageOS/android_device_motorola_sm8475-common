@@ -6,7 +6,6 @@ AM_CFLAGS = -I./ \
             -I./data-items/ \
             -I./data-items/common \
             -I./observer \
-            -I$(WORKSPACE)/gps-noship/flp \
             -D__func__=__PRETTY_FUNCTION__ \
             -fno-short-enums \
             -std=c++11
@@ -20,6 +19,7 @@ libloc_core_la_h_sources = \
            loc_core_log.h \
            LocAdapterProxyBase.h \
            EngineHubProxyBase.h \
+           LocGlinkBase.h \
            data-items/DataItemId.h \
            data-items/IDataItemCore.h \
            data-items/DataItemConcreteTypes.h \
@@ -45,6 +45,10 @@ libloc_core_la_c_sources = \
 if USE_EXTERNAL_AP
 AM_CFLAGS += -DFEATURE_EXTERNAL_AP
 endif
+if PTP_SUPPORTED
+AM_CFLAGS += -DPTP_SUPPORTED
+AM_CFLAGS += -I$(WORKSPACE)/external/open-avb/lib/libgptp
+endif
 
 library_includedir = $(pkgincludedir)
 
@@ -67,6 +71,10 @@ AM_CFLAGS += -DFEATURE_AUTOMOTIVE
 endif
 
 libloc_core_la_LIBADD = -ldl $(GPSUTILS_LIBS)
+
+if PTP_SUPPORTED
+libloc_core_la_LIBADD += -lgptp
+endif
 
 #Create and Install libraries
 lib_LTLIBRARIES = libloc_core.la
