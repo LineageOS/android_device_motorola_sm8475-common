@@ -26,6 +26,11 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
 
 #ifndef LOC_CFG_H
 #define LOC_CFG_H
@@ -50,23 +55,24 @@
 #define LOC_FEATURE_GTP_WIFI           "gtp-wifi"
 #define LOC_FEATURE_GTP_WAA            "gtp-waa"
 #define LOC_FEATURE_SAP                "sap"
+#define LOC_FEATURE_LAUNCH_TRIGGER_MASK   "launch-trigger-mask"
 
 #define LOC_PROCESS_MAX_NUM_GROUPS     20
 #define LOC_PROCESS_MAX_NUM_ARGS       25
-#define LOC_PROCESS_MAX_ARG_STR_LENGTH 32
+#define LOC_PROCESS_MAX_ARG_STR_LENGTH 64
 
 #define UTIL_UPDATE_CONF(conf_data, len, config_table) \
-    loc_update_conf((conf_data), (len), (&config_table[0]), \
+    loc_update_conf((conf_data), (len), config_table, \
                     sizeof(config_table) / sizeof(config_table[0]))
 
 #define UTIL_READ_CONF_DEFAULT(filename) \
     loc_read_conf((filename), NULL, 0);
 
 #define UTIL_READ_CONF(filename, config_table) \
-    loc_read_conf((filename), (&config_table[0]), sizeof(config_table) / sizeof(config_table[0]))
+    loc_read_conf((filename), config_table, sizeof(config_table) / sizeof(config_table[0]))
 
 #define UTIL_READ_CONF_LONG(filename, config_table, rec_len) \
-    loc_read_conf_long((filename), (&config_table[0]), \
+    loc_read_conf_long((filename), config_table, \
             sizeof(config_table) / sizeof(config_table[0]), (rec_len))
 
 /*=============================================================================
@@ -100,7 +106,7 @@ typedef struct {
     unsigned char        num_groups;
     char                 args[LOC_PROCESS_MAX_NUM_ARGS][LOC_PROCESS_MAX_ARG_STR_LENGTH];
     char                 argumentString[LOC_MAX_PARAM_STRING];
-    bool                 launch_on_optin;
+    unsigned int         launch_trigger_mask;
 } loc_process_info_s_type;
 
 /*=============================================================================
@@ -121,26 +127,26 @@ extern "C" {
 bool isVendorEnhanced();
 void setVendorEnhanced(bool vendorEnhanced);
 void loc_read_conf_long(const char* conf_file_name,
-                        const loc_param_s_type* config_table,
+                        const loc_param_s_type config_table[],
                         uint32_t table_length, uint16_t string_len);
-int loc_read_conf_r_long(FILE *conf_fp, const loc_param_s_type* config_table,
+int loc_read_conf_r_long(FILE *conf_fp, const loc_param_s_type config_table[],
                          uint32_t table_length, uint16_t string_len);
 int loc_update_conf_long(const char* conf_data, int32_t length,
-                         const loc_param_s_type* config_table, uint32_t table_length,
+                         const loc_param_s_type config_table[], uint32_t table_length,
                          uint16_t string_len);
 
 inline void loc_read_conf(const char* conf_file_name,
-                          const loc_param_s_type* config_table, uint32_t table_length) {
+                          const loc_param_s_type config_table[], uint32_t table_length) {
     loc_read_conf_long(conf_file_name, config_table, table_length, LOC_MAX_PARAM_STRING);
 }
 
-inline int loc_read_conf_r(FILE *conf_fp, const loc_param_s_type* config_table,
+inline int loc_read_conf_r(FILE *conf_fp, const loc_param_s_type config_table[],
                     uint32_t table_length) {
     return (loc_read_conf_r_long(conf_fp, config_table, table_length, LOC_MAX_PARAM_STRING));
 }
 
 inline int loc_update_conf(const char* conf_data, int32_t length,
-                    const loc_param_s_type* config_table, uint32_t table_length) {
+                    const loc_param_s_type config_table[], uint32_t table_length) {
     return (loc_update_conf_long(
                     conf_data, length, config_table, table_length, LOC_MAX_PARAM_STRING));
 }
@@ -148,7 +154,6 @@ inline int loc_update_conf(const char* conf_data, int32_t length,
 // Below are the location conf file paths
 extern const char LOC_PATH_GPS_CONF[];
 extern const char LOC_PATH_IZAT_CONF[];
-extern const char LOC_PATH_BATCHING_CONF[];
 extern const char LOC_PATH_LOWI_CONF[];
 extern const char LOC_PATH_SAP_CONF[];
 extern const char LOC_PATH_APDR_CONF[];
@@ -161,7 +166,6 @@ extern const char LOC_PATH_QPPE_CONF[];
 
 int loc_read_process_conf(const char* conf_file_name, uint32_t * process_count_ptr,
                           loc_process_info_s_type** process_info_table_ptr);
-int loc_get_datum_type();
 #ifdef __cplusplus
 }
 #endif

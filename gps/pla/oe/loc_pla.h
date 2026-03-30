@@ -26,6 +26,12 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
+
 #ifndef __LOC_PLA__
 #define __LOC_PLA__
 
@@ -36,14 +42,8 @@
 #include <inttypes.h>
 #include <sys/time.h>
 #include <time.h>
-
-#if defined(__GNUC__) && defined(__GNUC_PREREQ)
-#if __GNUC_PREREQ(6,0)
-    #pragma message "GNU C version is above 6"
-#else
-    #pragma message "GNU C version is less than 6"
-    #define NO_UNORDERED_SET_OR_MAP
-#endif
+#if !defined(OPENWRT_BUILD) && !defined(OFF_TARGET)
+#include <glib.h>
 #endif
 
 inline int64_t sysTimeMillis(int clock)
@@ -68,6 +68,7 @@ extern "C" {
 
 #ifndef FEATURE_EXTERNAL_AP
 #include <cutils/properties.h>
+#include <cutils/threads.h>
 #include <cutils/sched_policy.h>
 #else
 #define set_sched_policy(a, b)
@@ -83,12 +84,13 @@ extern "C" {
 #include <stdio.h>
 #include <stdarg.h>
 #define MAX_COMMAND_STR_LEN (255)
-#define BOOT_KPI_FILE "/sys/kernel/debug/bootkpi/kpi_values"
-#ifndef OFF_TARGET
-#include <glib.h>
+#define BOOT_KPI_FILE "/sys/kernel/boot_kpi/kpi_values"
+
+// OpenWrt Musl C library supports strlcpy/strlcat
+#if !defined(OPENWRT_BUILD) && !defined(OFF_TARGET)
 #define strlcat g_strlcat
 #define strlcpy g_strlcpy
-#else
+#elif defined(OFF_TARGET)
 #define strlcat strncat
 #define strlcpy strncpy
 #endif
@@ -100,7 +102,6 @@ extern "C" {
 
 #define LOC_PATH_GPS_CONF_STR      "/etc/gps.conf"
 #define LOC_PATH_IZAT_CONF_STR     "/etc/izat.conf"
-#define LOC_PATH_BATCHING_CONF_STR "/etc/batching.conf"
 #define LOC_PATH_LOWI_CONF_STR     "/etc/lowi.conf"
 #define LOC_PATH_SAP_CONF_STR      "/etc/sap.conf"
 #define LOC_PATH_APDR_CONF_STR     "/etc/apdr.conf"

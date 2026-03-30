@@ -30,7 +30,7 @@
 /*
 Changes from Qualcomm Innovation Center are provided under the following license:
 
-Copyright (c) 2022, 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2022-2024, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted (subject to the limitations in the
@@ -62,7 +62,6 @@ IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-
 #define LOG_NDEBUG 0
 #define LOG_TAG "LocSvc_LocAdapterBase"
 
@@ -82,10 +81,11 @@ LocAdapterBase::LocAdapterBase(const LOC_API_ADAPTER_EVENT_MASK_T mask,
                                ContextBase* context, bool isMaster,
                                LocAdapterProxyBase *adapterProxyBase,
                                bool waitForDoneInit) :
-    mIsMaster(isMaster),
+    mIsMaster(isMaster), mEvtMask(mask), mContext(context),
+    mLocApi(context->getLocApi()), mLocAdapterProxyBase(adapterProxyBase),
+    mMsgTask(context->getMsgTask()),
     mIsEngineCapabilitiesKnown(ContextBase::sIsEngineCapabilitiesKnown),
-    mEvtMask(mask), mContext(context), mLocApi(context->getLocApi()),
-    mLocAdapterProxyBase(adapterProxyBase), mMsgTask(context->getMsgTask())
+    mPpFeatureStatusMask(0)
 {
     LOC_LOGd("waitForDoneInit: %d", waitForDoneInit);
     if (!waitForDoneInit) {
@@ -125,8 +125,8 @@ void LocAdapterBase::
                         const GpsLocationExtended& locationExtended,
                         enum loc_sess_status status,
                         LocPosTechMask loc_technology_mask,
-                        GnssDataNotification* pDataNotify __unused,
-                        int msInWeek __unused)
+                        GnssDataNotification* pDataNotify,
+                        int msInWeek)
 {
     if (mLocAdapterProxyBase != NULL) {
         mLocAdapterProxyBase->reportPositionEvent((UlpLocation&)location,
@@ -174,6 +174,10 @@ void LocAdapterBase::
     reportLocationSystemInfoEvent(const LocationSystemInfo& /*locationSystemInfo*/)
 DEFAULT_IMPL()
 
+void LocAdapterBase::
+    reportModemGnssQesdkFeatureStatus(const ModemGnssQesdkFeatureMask& /*mask*/)
+DEFAULT_IMPL()
+
 bool LocAdapterBase::
     requestXtraData()
 DEFAULT_IMPL(false)
@@ -188,17 +192,18 @@ DEFAULT_IMPL(false)
 
 bool LocAdapterBase::
     requestATL(int /*connHandle*/, LocAGpsType /*agps_type*/,
-               LocApnTypeMask /*apn_type_mask*/, LocSubId /*sub_id*/)
+               LocApnTypeMask /*apn_type_mask*/, SubId /*sub_id*/,
+               uint32_t /*timeout*/)
 DEFAULT_IMPL(false)
 
 bool LocAdapterBase::
-    releaseATL(int /*connHandle*/)
+    releaseATL(int /*connHandle*/, uint32_t /*timeout*/)
 DEFAULT_IMPL(false)
 
 bool LocAdapterBase::
     requestNiNotifyEvent(const GnssNiNotification &/*notify*/,
                          const void* /*data*/,
-                         const LocInEmergency /*emergencyState*/)
+                         const LocInEmergency emergencyState)
 DEFAULT_IMPL(false)
 
 void LocAdapterBase::
@@ -310,12 +315,16 @@ LocationCapabilitiesMask
 LocAdapterBase::getCapabilities()
 {
     LocationCapabilitiesMask mask = 0;
+    // Below feature flag needs to be set irrespective of engine capabilities are known or not
+#if defined (FEATURE_AUTOMOTIVE) || defined (FEATURE_NHZ_ENABLED)
+        mask |= LOCATION_CAPABILITIES_QWES_GNSS_NHZ;
+#endif
 
     if (isEngineCapabilitiesKnown()) {
         // time based tracking always supported
         mask |= LOCATION_CAPABILITIES_TIME_BASED_TRACKING_BIT;
         if (ContextBase::isMessageSupported(
-                LOC_API_ADAPTER_MESSAGE_DISTANCE_BASE_LOCATION_BATCHING)){
+                LOC_API_ADAPTER_MESSAGE_DISTANCE_BASE_LOCATION_BATCHING)) {
             mask |= LOCATION_CAPABILITIES_TIME_BASED_BATCHING_BIT |
                     LOCATION_CAPABILITIES_DISTANCE_BASED_BATCHING_BIT;
         }
@@ -337,8 +346,9 @@ LocAdapterBase::getCapabilities()
         if (LOC_GPS_CAPABILITY_MSA & carrierCapabilities) {
             mask |= LOCATION_CAPABILITIES_GNSS_MSA_BIT;
         }
-        if (ContextBase::isFeatureSupported(LOC_SUPPORTED_FEATURE_DEBUG_NMEA_V02)) {
-            mask |= LOCATION_CAPABILITIES_DEBUG_NMEA_BIT;
+        if (ContextBase::isFeatureSupported(LOC_SUPPORTED_FEATURE_DEBUG_NMEA_V02) ||
+            ContextBase::isFeatureSupported(LOC_SUPPORTED_FEATURE_ENGINE_DEBUG_DATA)) {
+            mask |= LOCATION_CAPABILITIES_DEBUG_DATA_BIT;
         }
         if (ContextBase::isFeatureSupported(LOC_SUPPORTED_FEATURE_CONSTELLATION_ENABLEMENT_V02)) {
             mask |= LOCATION_CAPABILITIES_CONSTELLATION_ENABLEMENT_BIT;
@@ -359,14 +369,14 @@ LocAdapterBase::getCapabilities()
             (ContextBase::getQwesFeatureStatus() & LOCATION_CAPABILITIES_QWES_DGNSS)) {
             mask |= LOCATION_CAPABILITIES_EDGNSS_BIT;
         }
-        if ((ContextBase::getQwesFeatureStatus() & LOCATION_CAPABILITIES_QWES_PPE)) {
-            mask |= LOCATION_CAPABILITIES_QWES_PPE;
-        }
-        if (ContextBase::isFeatureSupported(LOC_SUPPORTED_FEATURE_ENGINE_DEBUG_DATA)) {
-            mask |= LOCATION_CAPABILITIES_ENGINE_DEBUG_DATA_BIT;
-        }
         //Get QWES feature status mask
         mask |= ContextBase::getQwesFeatureStatus();
+        if (ContextBase::isAntennaInfoAvailable()) {
+            mask |= LOCATION_CAPABILITIES_ANTENNA_INFO;
+        }
+        if (mPpFeatureStatusMask & DLP_FEATURE_STATUS_LIBRARY_PRESENT) {
+            mask |= LOCATION_CAPABILITIES_PRECISE_LIB_PRESENT;
+        }
         //Get HW feature status mask
         LocationHwCapabilitiesMask hwMask = ContextBase::getHwCapabilitiesMask();
         if ((hwMask & LOCATION_WIFI_CAPABILITY_RTT) != 0) {
@@ -375,10 +385,14 @@ LocAdapterBase::getCapabilities()
         if ((hwMask & LOCATION_WIFI_CAPABILITY_RSSI) != 0) {
             mask |= LOCATION_CAPABILITIES_WIFI_RSSI_POSITIONING;
         }
-    } else {
-        LOC_LOGE("%s]: attempt to get capabilities before they are known.", __func__);
-    }
 
+        if (ContextBase::isFeatureSupported(LOC_SUPPORTED_FEATURE_GNSS_BANDS_SUPPORTED)) {
+            mask |= LOCATION_CAPABILITIES_GNSS_BANDS_BIT;
+        }
+    } else {
+        LOC_LOGe("attempt to get capabilities before they are known.");
+    }
+    LOC_LOGd("Capabilities: 0x%" PRIx64 " ", mask);
     return mask;
 }
 
@@ -397,7 +411,7 @@ LocAdapterBase::updateClientsEventMask()
 DEFAULT_IMPL()
 
 void
-LocAdapterBase::stopClientSessions(LocationAPI* /*client*/, bool /*eraseSession*/)
+LocAdapterBase::stopClientSessions(LocationAPI* client, bool eraseSession)
 DEFAULT_IMPL()
 
 void
@@ -485,11 +499,27 @@ void
 LocAdapterBase::reportLatencyInfoEvent(const GnssLatencyInfo& /*gnssLatencyInfo*/)
 DEFAULT_IMPL()
 
-bool LocAdapterBase::
-    reportQwesCapabilities(const std::unordered_map<LocationQwesFeatureType, bool> &/*featureMap*/)
-DEFAULT_IMPL(false)
-
-void LocAdapterBase::reportEngDebugDataInfoEvent(GnssEngineDebugDataInfo& /*gnssEngineDebugDataInfo*/)
+void
+LocAdapterBase::handleEngineLockStatusEvent(const EngineLockState engineLockState)
 DEFAULT_IMPL()
 
+bool LocAdapterBase::
+    reportQwesCapabilities(const std::unordered_map<LocationQwesFeatureType, bool> &featureMap)
+DEFAULT_IMPL(false)
+
+void LocAdapterBase::reportEngDebugDataInfoEvent(GnssEngineDebugDataInfo& gnssEngineDebugDataInfo)
+DEFAULT_IMPL()
+
+void LocAdapterBase::
+    reportDcMessage(const GnssDcReportInfo& /*dcReport*/)
+DEFAULT_IMPL()
+
+void LocAdapterBase::
+    reportSignalTypeCapabilities(const GnssCapabNotification& /*gnssCapabNotification*/)
+DEFAULT_IMPL()
+void LocAdapterBase::reportNtnStatusEvent(LocationError status,
+        const GnssSignalTypeMask& gpsSignalTypeConfigMask, bool isSetResponse)
+DEFAULT_IMPL()
+void LocAdapterBase::reportNtnConfigUpdateEvent(const GnssSignalTypeMask& gpsSignalTypeConfigMask)
+DEFAULT_IMPL()
 } // namespace loc_core

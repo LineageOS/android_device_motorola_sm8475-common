@@ -18,7 +18,7 @@ AC_PROG_MAKE_SET
 PKG_PROG_PKG_CONFIG
 
 # Check for libraries
-PKG_CHECK_MODULES([GPSUTILS], [gps-utils])
+PKG_CHECK_MODULES([GPSUTILS], [qcom-gps-utils])
 AC_SUBST([GPSUTILS_CFLAGS])
 AC_SUBST([GPSUTILS_LIBS])
 
@@ -39,6 +39,16 @@ AC_ARG_WITH([locpla_includes],
 
 if test "x$with_locpla_includes" != "xno"; then
    AC_SUBST(LOCPLA_CFLAGS, "-I${locpla_incdir}")
+fi
+
+AC_ARG_WITH([core_includes],
+      AC_HELP_STRING([--with-core-includes=@<:@dir@:>@],
+         [Specify the location of the core headers]),
+      [core_incdir=$withval],
+      with_core_includes=no)
+
+if test "x$with_core_includes" != "xno"; then
+   CPPFLAGS="${CPPFLAGS} -I${core_incdir}"
 fi
 
 AC_ARG_WITH([glib],

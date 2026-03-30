@@ -25,7 +25,11 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
 #ifndef __LOC_PLA__
 #define __LOC_PLA__
 
@@ -52,7 +56,6 @@ extern "C" {
 
 #define LOC_PATH_GPS_CONF_STR      "/vendor/etc/gps.conf"
 #define LOC_PATH_IZAT_CONF_STR     "/vendor/etc/izat.conf"
-#define LOC_PATH_BATCHING_CONF_STR "/vendor/etc/batching.conf"
 #define LOC_PATH_LOWI_CONF_STR     "/vendor/etc/lowi.conf"
 #define LOC_PATH_SAP_CONF_STR      "/vendor/etc/sap.conf"
 #define LOC_PATH_APDR_CONF_STR     "/vendor/etc/apdr.conf"
@@ -62,6 +65,8 @@ extern "C" {
 #define LOC_PATH_SLIM_CONF_STR     "/vendor/etc/slim.conf"
 #define LOC_PATH_VPE_CONF_STR      "/vendor/etc/vpeglue.conf"
 #define LOC_PATH_QPPE_CONF_STR     "/vendor/etc/qppe.conf"
+
+#define ANDROID_16_SDK_VERSION     36
 
 /*!
  * @brief Function for memory block copy
@@ -85,9 +90,15 @@ static inline size_t memscpy (void *p_Dest, size_t q_DestSize, const void *p_Src
 }
 
 /*API for boot kpi marker prints  */
-inline int loc_boot_kpi_marker(const char * pFmt __unused, ...)
+inline int loc_boot_kpi_marker(const char * pFmt, ...)
 {
     return -1;
+}
+
+inline int loc_pla_get_android_sdk_version() {
+    char sdk_version[PROPERTY_VALUE_MAX];
+    property_get("ro.build.version.sdk", sdk_version, "0");
+    return atoi(sdk_version);
 }
 
 #ifdef __cplusplus

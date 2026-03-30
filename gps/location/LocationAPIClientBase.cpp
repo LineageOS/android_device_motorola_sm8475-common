@@ -26,6 +26,11 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 #define LOG_NDEBUG 0
 #define LOG_TAG "LocSvc_APIClientBase"
 
@@ -33,6 +38,8 @@
 #include <log_util.h>
 #include <inttypes.h>
 #include <loc_cfg.h>
+#include <loc_misc_utils.h>
+
 #include "LocationAPIClientBase.h"
 
 #define GEOFENCE_SESSION_ID 0xFFFFFFFF
@@ -60,7 +67,7 @@ LocationAPIControlClient::LocationAPIControlClient() :
             onCtrlCollectiveResponseCb(count, errors, ids);
         };
 
-    mLocationControlAPI = LocationControlAPI::createInstance(locationControlCallbacks);
+    mLocationControlAPI = LocationControlAPI::getInstance(locationControlCallbacks);
 }
 
 LocationAPIControlClient::~LocationAPIControlClient()
@@ -81,7 +88,7 @@ LocationAPIControlClient::~LocationAPIControlClient()
     pthread_mutex_destroy(&mMutex);
 }
 
-uint32_t LocationAPIControlClient::locAPIGnssDeleteAidingData(GnssAidingData& data)
+uint32_t LocationAPIControlClient::locAPIGnssDeleteAidingData(const GnssAidingData& data)
 {
     uint32_t retVal = LOCATION_ERROR_GENERAL_FAILURE;
     pthread_mutex_lock(&mMutex);
@@ -137,7 +144,7 @@ void LocationAPIControlClient::locAPIDisable()
     pthread_mutex_unlock(&mMutex);
 }
 
-uint32_t LocationAPIControlClient::locAPIGnssUpdateConfig(GnssConfig config)
+uint32_t LocationAPIControlClient::locAPIGnssUpdateConfig(const GnssConfig& config)
 {
     uint32_t retVal = LOCATION_ERROR_GENERAL_FAILURE;
 
@@ -248,7 +255,6 @@ LocationAPIClientBase::LocationAPIClientBase() :
     mGeofenceBreachCallback(nullptr),
     mBatchingStatusCallback(nullptr),
     mLocationAPI(nullptr),
-    mBatchSize(-1),
     mTracking(false)
 {
 
@@ -270,15 +276,26 @@ void LocationAPIClientBase::locAPISetCallbacks(LocationCallbacks& locationCallba
     if (locationCallbacks.geofenceBreachCb != nullptr) {
         mGeofenceBreachCallback = locationCallbacks.geofenceBreachCb;
         locationCallbacks.geofenceBreachCb =
-            [this](GeofenceBreachNotification geofenceBreachNotification) {
+            [this](const GeofenceBreachNotification& geofenceBreachNotification) {
                 beforeGeofenceBreachCb(geofenceBreachNotification);
             };
     }
 
     locationCallbacks.capabilitiesCb =
         [this](LocationCapabilitiesMask capabilitiesMask) {
+            if (LocationAPI::isInfotainmentHalConfigured()) {
+                LocationCapabilitiesMask locIviSupportedMask =
+                    LOCATION_CAPABILITIES_TIME_BASED_TRACKING_BIT |
+                    LOCATION_CAPABILITIES_GNSS_MEASUREMENTS_BIT |
+                    LOCATION_CAPABILITIES_DEBUG_DATA_BIT |
+                    LOCATION_CAPABILITIES_ANTENNA_INFO;
+
+                capabilitiesMask &= locIviSupportedMask;
+            }
+
             onCapabilitiesCb(capabilitiesMask);
-        };
+    };
+
     locationCallbacks.responseCb = [this](LocationError error, uint32_t id) {
         onResponseCb(error, id);
     };
@@ -290,7 +307,8 @@ void LocationAPIClientBase::locAPISetCallbacks(LocationCallbacks& locationCallba
     if (locationCallbacks.batchingStatusCb != nullptr) {
         mBatchingStatusCallback = locationCallbacks.batchingStatusCb;
         locationCallbacks.batchingStatusCb =
-            [this](BatchingStatusInfo batchStatus, std::list<uint32_t> & tripCompletedList) {
+                [this](const BatchingStatusInfo& batchStatus,
+                const std::list<uint32_t> & tripCompletedList) {
             beforeBatchingStatusCb(batchStatus, tripCompletedList);
         };
     }
@@ -316,7 +334,7 @@ void LocationAPIClientBase::destroy()
         mRequestQueues[i].reset((uint32_t)0);
     }
 
-    LocationAPI* localHandle = nullptr;
+    ILocationAPI* localHandle = nullptr;
     if (nullptr != mLocationAPI) {
         localHandle = mLocationAPI;
         mLocationAPI = nullptr;
@@ -334,6 +352,21 @@ void LocationAPIClientBase::destroy()
 
 LocationAPIClientBase::~LocationAPIClientBase()
 {
+    pthread_mutex_lock(&mMutex);
+    ILocationAPI* localHandle = nullptr;
+    if (nullptr != mLocationAPI) {
+        LocationCallbacks emptryCallbacks = {};
+        mLocationAPI->updateCallbacks(emptryCallbacks);
+        localHandle = mLocationAPI;
+        mLocationAPI = nullptr;
+    }
+
+    pthread_mutex_unlock(&mMutex);
+
+    if (nullptr != localHandle) {
+        localHandle->destroy();
+    }
+
     pthread_mutex_destroy(&mMutex);
 }
 
@@ -343,13 +376,14 @@ void LocationAPIClientBase::onLocationApiDestroyCompleteCb()
     delete this;
 }
 
-uint32_t LocationAPIClientBase::locAPIStartTracking(TrackingOptions& options)
+uint32_t LocationAPIClientBase::locAPIStartTracking(const TrackingOptions& options)
 {
     uint32_t retVal = LOCATION_ERROR_GENERAL_FAILURE;
     pthread_mutex_lock(&mMutex);
     if (mLocationAPI) {
         if (mTracking) {
-            LOC_LOGW("%s:%d] Existing tracking session present", __FUNCTION__, __LINE__);
+            pthread_mutex_unlock(&mMutex);
+            locAPIUpdateTrackingOptions(options);
         } else {
             uint32_t session = mLocationAPI->startTracking(options);
             LOC_LOGI("%s:%d] start new session: %d", __FUNCTION__, __LINE__, session);
@@ -359,11 +393,13 @@ uint32_t LocationAPIClientBase::locAPIStartTracking(TrackingOptions& options)
             mRequestQueues[REQUEST_TRACKING].reset(session);
             mRequestQueues[REQUEST_TRACKING].push(new StartTrackingRequest(*this));
             mTracking = true;
+            pthread_mutex_unlock(&mMutex);
         }
 
         retVal = LOCATION_ERROR_SUCCESS;
+    } else {
+        pthread_mutex_unlock(&mMutex);
     }
-    pthread_mutex_unlock(&mMutex);
 
     return retVal;
 }
@@ -385,7 +421,7 @@ void LocationAPIClientBase::locAPIStopTracking()
     pthread_mutex_unlock(&mMutex);
 }
 
-void LocationAPIClientBase::locAPIUpdateTrackingOptions(TrackingOptions& options)
+void LocationAPIClientBase::locAPIUpdateTrackingOptions(const TrackingOptions& options)
 {
     pthread_mutex_lock(&mMutex);
     if (mLocationAPI) {
@@ -401,20 +437,11 @@ void LocationAPIClientBase::locAPIUpdateTrackingOptions(TrackingOptions& options
     pthread_mutex_unlock(&mMutex);
 }
 
-int32_t LocationAPIClientBase::locAPIGetBatchSize()
-{
-    if (mBatchSize == -1) {
-        const loc_param_s_type batching_conf_param_table[] =
-        {
-            {"BATCH_SIZE", &mBatchSize, nullptr, 'n'},
-        };
-        UTIL_READ_CONF(LOC_PATH_BATCHING_CONF, batching_conf_param_table);
-        if (mBatchSize < 0) {
-            // set mBatchSize to 0 if we got an illegal value from config file
-            mBatchSize = 0;
-        }
+int32_t LocationAPIClientBase::locAPIGetBatchSize() {
+    if (mLocationAPI) {
+        return mLocationAPI->getBatchSize();
     }
-    return mBatchSize;
+    return 0;
 }
 
 uint32_t LocationAPIClientBase::locAPIStartSession(
@@ -511,6 +538,13 @@ uint32_t LocationAPIClientBase::locAPIStopSession(uint32_t id)
     }
     pthread_mutex_unlock(&mMutex);
     return retVal;
+}
+
+void LocationAPIClientBase::locAPIRemoveAllSessions() {
+    std::vector<uint32_t> idsVec = mSessionBiDict.getAllIds();
+    for (int i=0; i<idsVec.size(); ++i) {
+        locAPIStopSession(idsVec[i]);
+    }
 }
 
 uint32_t LocationAPIClientBase::locAPIUpdateSessionOptions(
@@ -830,11 +864,28 @@ void LocationAPIClientBase::locAPIGnssNiResponse(uint32_t id, GnssNiResponse res
     pthread_mutex_unlock(&mMutex);
 }
 
+void LocationAPIClientBase::locAPIGetDebugReport(GnssDebugReport &report) {
+    pthread_mutex_lock(&mMutex);
+    if (mLocationAPI) {
+        mLocationAPI->getDebugReport(report);
+    }
+    pthread_mutex_unlock(&mMutex);
+}
+
+uint32_t LocationAPIClientBase::locAPIGetAntennaInfo(AntennaInfoCallback* cb) {
+    uint32_t ret = 0;
+    pthread_mutex_lock(&mMutex);
+    if (mLocationAPI) {
+        ret =  mLocationAPI->getAntennaInfo(cb);
+    }
+    pthread_mutex_unlock(&mMutex);
+    return ret;
+}
+
 void LocationAPIClientBase::beforeGeofenceBreachCb(
-        GeofenceBreachNotification geofenceBreachNotification)
+        const GeofenceBreachNotification& geofenceBreachNotification)
 {
     uint32_t* ids = (uint32_t*)malloc(sizeof(uint32_t) * geofenceBreachNotification.count);
-    uint32_t* backup = geofenceBreachNotification.ids;
     size_t n = geofenceBreachNotification.count;
     geofenceBreachCallback genfenceCallback = nullptr;
 
@@ -844,7 +895,7 @@ void LocationAPIClientBase::beforeGeofenceBreachCb(
                 sizeof(uint32_t) * geofenceBreachNotification.count);
         return;
     }
-
+    GeofenceBreachNotification notif = geofenceBreachNotification;
     pthread_mutex_lock(&mMutex);
     if (mGeofenceBreachCallback != nullptr) {
         size_t count = 0;
@@ -863,25 +914,22 @@ void LocationAPIClientBase::beforeGeofenceBreachCb(
                 count++;
             }
         }
-        geofenceBreachNotification.count = count;
-        geofenceBreachNotification.ids = ids;
+        notif.count = count;
+        notif.ids = ids;
 
         genfenceCallback = mGeofenceBreachCallback;
     }
     pthread_mutex_unlock(&mMutex);
 
     if (genfenceCallback != nullptr) {
-        genfenceCallback(geofenceBreachNotification);
+        genfenceCallback(notif);
     }
 
-    // restore ids
-    geofenceBreachNotification.ids = backup;
-    geofenceBreachNotification.count = n;
     free(ids);
 }
 
-void LocationAPIClientBase::beforeBatchingStatusCb(BatchingStatusInfo batchStatus,
-        std::list<uint32_t> & tripCompletedList) {
+void LocationAPIClientBase::beforeBatchingStatusCb(const BatchingStatusInfo& batchStatus,
+        const std::list<uint32_t> & tripCompletedList) {
 
     // map the trip ids to the client ids
     std::list<uint32_t> tripCompletedClientIdList;

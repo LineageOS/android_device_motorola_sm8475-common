@@ -17,11 +17,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 /*
 Changes from Qualcomm Innovation Center are provided under the following license:
 
-Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted (subject to the limitations in the
@@ -53,10 +52,12 @@ IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+
 #define LOG_TAG "GnssMeasurementInterfaceAidl"
 
 #include <log_util.h>
 #include "GnssMeasurementInterface.h"
+#include "LocationUtil.h"
 #include <android/binder_auto_utils.h>
 #include <aidl/android/hardware/gnss/BnGnss.h>
 #include <inttypes.h>
@@ -69,6 +70,7 @@ using aidl::android::hardware::gnss::GnssMeasurement;
 using aidl::android::hardware::gnss::GnssSignalType;
 using aidl::android::hardware::gnss::GnssConstellationType;
 using aidl::android::hardware::gnss::GnssMultipathIndicator;
+using aidl::android::hardware::gnss::SatellitePvt;
 
 namespace android {
 namespace hardware {
@@ -81,30 +83,43 @@ GnssMeasurementInterface::GnssMeasurementInterface() :
     mTracking(false) {
 }
 
-::ndk::ScopedAStatus GnssMeasurementInterface::setCallback(
-        const std::shared_ptr<IGnssMeasurementCallback>& in_callback,
-        bool in_enableFullTracking, bool in_enableCorrVecOutputs) {
+ScopedAStatus GnssMeasurementInterface::setCallback(
+        const shared_ptr<IGnssMeasurementCallback>& callback,
+        bool enableFullTracking, bool enableCorrVecOutputs) {
 
-    LOC_LOGd("setCallback: enableFullTracking: %d enableCorrVecOutputs: %d",
-             (int)in_enableFullTracking,
-             (int)in_enableCorrVecOutputs);
-    std::unique_lock<std::mutex> lock(mMutex);
+    IGnssMeasurementInterface::Options options;
 
-    if (nullptr == in_callback) {
-        LOC_LOGe("callback is nullptr");
-        return ndk::ScopedAStatus::fromExceptionCode(STATUS_INVALID_OPERATION);
-    }
+    options.enableFullTracking = enableFullTracking;
+    options.enableCorrVecOutputs = enableCorrVecOutputs;
+    options.intervalMs = 1000;
 
-    AIBinder_linkToDeath(in_callback->asBinder().get(), mDeathRecipient, this);
-    mGnssMeasurementCbIface = in_callback;
-
-    lock.unlock();
-    startTracking(in_enableFullTracking ? GNSS_POWER_MODE_M1 : GNSS_POWER_MODE_M2);
-    return ndk::ScopedAStatus::ok();
+    return setCallbackWithOptions(callback, options);
 }
 
-::ndk::ScopedAStatus GnssMeasurementInterface::close()  {
+ScopedAStatus GnssMeasurementInterface::setCallbackWithOptions(
+        const shared_ptr<IGnssMeasurementCallback>& callback,
+        const IGnssMeasurementInterface::Options& options) {
+    LOC_LOGd("setCallback: enableFullTracking: %d enableCorrVecOutputs: %d intervalMs: %d",
+             (int)options.enableFullTracking,
+             (int)options.enableCorrVecOutputs,
+             (int)options.intervalMs);
+    std::unique_lock<std::mutex> lock(mMutex);
 
+    if (nullptr == callback) {
+        LOC_LOGe("callback is nullptr");
+        return ScopedAStatus::fromExceptionCode(STATUS_INVALID_OPERATION);
+    }
+
+    AIBinder_linkToDeath(callback->asBinder().get(), mDeathRecipient, this);
+    mGnssMeasurementCbIface = callback;
+
+    lock.unlock();
+    startTracking(options.enableFullTracking ? GNSS_POWER_MODE_M1 : GNSS_POWER_MODE_M2,
+                  options.intervalMs);
+    return ScopedAStatus::ok();
+}
+
+ScopedAStatus GnssMeasurementInterface::close()  {
     LOC_LOGd("()");
     if (nullptr != mGnssMeasurementCbIface) {
         AIBinder_unlinkToDeath(mGnssMeasurementCbIface->asBinder().get(), mDeathRecipient, this);
@@ -121,14 +136,14 @@ GnssMeasurementInterface::GnssMeasurementInterface() :
     locationCallbacks.size = sizeof(LocationCallbacks);
     locAPISetCallbacks(locationCallbacks);
 
-    return ndk::ScopedAStatus::ok();
+    return ScopedAStatus::ok();
 }
 
 void GnssMeasurementInterface::onGnssMeasurementsCb(
-        GnssMeasurementsNotification gnssMeasurementsNotification) {
+        const GnssMeasurementsNotification &gnssMeasurementsNotification) {
 
     std::unique_lock<std::mutex> lock(mMutex);
-    LOC_LOGd("(count: %u active: %d)", gnssMeasurementsNotification.count, mTracking);
+    LOC_LOGv("(count: %u active: %d)", gnssMeasurementsNotification.count, mTracking);
     if (mTracking) {
         auto gnssMeasurementCbIface = mGnssMeasurementCbIface;
         if (gnssMeasurementCbIface != nullptr) {
@@ -170,22 +185,19 @@ void GnssMeasurementInterface::startTracking(
     locationCallbacks.gnssMeasurementsCb = nullptr;
     if (nullptr != mGnssMeasurementCbIface) {
         locationCallbacks.gnssMeasurementsCb =
-            [this](GnssMeasurementsNotification gnssMeasurementsNotification) {
+            [this](const GnssMeasurementsNotification &gnssMeasurementsNotification) {
             onGnssMeasurementsCb(gnssMeasurementsNotification);
         };
     }
 
     locAPISetCallbacks(locationCallbacks);
 
-    TrackingOptions options = {};
-    memset(&options, 0, sizeof(TrackingOptions));
+    TrackingOptions options;
     options.size = sizeof(TrackingOptions);
-    options.minInterval = 1000;
+    options.minInterval = timeBetweenMeasurement;
     options.mode = GNSS_SUPL_MODE_STANDALONE;
-    if (GNSS_POWER_MODE_INVALID != powerMode) {
-        options.powerMode = powerMode;
-        options.tbm = timeBetweenMeasurement;
-    }
+    options.powerMode = powerMode;
+    options.tbm = timeBetweenMeasurement;
 
     std::unique_lock<std::mutex> lock(mMutex);
     mTracking = true;
@@ -194,7 +206,8 @@ void GnssMeasurementInterface::startTracking(
     locAPIStartTracking(options);
 }
 
-void GnssMeasurementInterface::convertGnssData(GnssMeasurementsNotification& in, GnssData& out) {
+void GnssMeasurementInterface::convertGnssData(
+        const GnssMeasurementsNotification& in, GnssData& out) {
 
     out.measurements.resize(in.count);
     for (size_t i = 0; i < in.count; i++) {
@@ -203,10 +216,31 @@ void GnssMeasurementInterface::convertGnssData(GnssMeasurementsNotification& in,
     }
     convertGnssClock(in.clock, out.clock);
     convertElapsedRealtimeNanos(in, out.elapsedRealtime);
+
+    if (in.agcCount > 0) {
+        GnssConstellationType constellation;
+        convertGnssConstellationType(in.gnssAgc[0].svType, constellation);
+
+        GnssData::GnssAgc gnssAgc0 = {
+            .agcLevelDb = in.gnssAgc[0].agcLevelDb,
+            .constellation = constellation,
+            .carrierFrequencyHz = (int64_t)in.gnssAgc[0].carrierFrequencyHz,
+        };
+        out.gnssAgcs = std::vector({ gnssAgc0 });
+
+        for (size_t i = 1; i < in.agcCount; i++) {
+            gnssAgc0.agcLevelDb = in.gnssAgc[i].agcLevelDb;
+            convertGnssConstellationType(in.gnssAgc[i].svType, constellation);
+            gnssAgc0.constellation = constellation;
+            gnssAgc0.carrierFrequencyHz = (int64_t)in.gnssAgc[i].carrierFrequencyHz;
+            out.gnssAgcs.push_back(gnssAgc0);
+        }
+    }
+    out.isFullTracking = in.isFullTracking;
 }
 
 void GnssMeasurementInterface::convertGnssMeasurement(
-        GnssMeasurementsData& in, GnssMeasurement& out) {
+        const GnssMeasurementsData& in, GnssMeasurement& out) {
     // flags
     convertGnssFlags(in, out);
     // svid
@@ -261,7 +295,8 @@ void GnssMeasurementInterface::convertGnssMeasurement(
     /* This is not supported, the corresponding flag is not set */
 }
 
-void GnssMeasurementInterface::convertGnssFlags(GnssMeasurementsData& in, GnssMeasurement& out) {
+void GnssMeasurementInterface::convertGnssFlags(
+        const GnssMeasurementsData& in, GnssMeasurement& out) {
 
     if (in.flags & GNSS_MEASUREMENTS_DATA_SIGNAL_TO_NOISE_RATIO_BIT)
         out.flags |= out.HAS_SNR;
@@ -289,7 +324,7 @@ void GnssMeasurementInterface::convertGnssFlags(GnssMeasurementsData& in, GnssMe
         out.flags |= out.HAS_CORRELATION_VECTOR;
 }
 
-void GnssMeasurementInterface::convertGnssSvId(GnssMeasurementsData& in, int& out) {
+void GnssMeasurementInterface::convertGnssSvId(const GnssMeasurementsData& in, int& out) {
 
     switch (in.svType) {
     case GNSS_SV_TYPE_GPS:
@@ -324,7 +359,7 @@ void GnssMeasurementInterface::convertGnssSvId(GnssMeasurementsData& in, int& ou
 }
 
 void GnssMeasurementInterface::convertGnssSignalType(
-        GnssMeasurementsData& in, GnssSignalType& out) {
+        const GnssMeasurementsData& in, GnssSignalType& out) {
 
     convertGnssConstellationType(in.svType, out.constellation);
     out.carrierFrequencyHz = in.carrierFrequencyHz;
@@ -332,7 +367,7 @@ void GnssMeasurementInterface::convertGnssSignalType(
 }
 
 void GnssMeasurementInterface::convertGnssConstellationType(
-        GnssSvType& in, GnssConstellationType& out) {
+        const GnssSvType& in, GnssConstellationType& out) {
 
     switch (in) {
         case GNSS_SV_TYPE_GPS:
@@ -363,61 +398,8 @@ void GnssMeasurementInterface::convertGnssConstellationType(
     }
 }
 
-void GnssMeasurementInterface::convertGnssMeasurementsCodeType(
-        GnssMeasurementsCodeType& inCodeType,
-        char* inOtherCodeTypeName, GnssSignalType& out) {
-
-    switch (inCodeType) {
-    case GNSS_MEASUREMENTS_CODE_TYPE_A:
-        out.codeType = out.CODE_TYPE_A;
-        break;
-    case GNSS_MEASUREMENTS_CODE_TYPE_B:
-        out.codeType = out.CODE_TYPE_B;
-        break;
-    case GNSS_MEASUREMENTS_CODE_TYPE_C:
-        out.codeType = out.CODE_TYPE_C;
-        break;
-    case GNSS_MEASUREMENTS_CODE_TYPE_I:
-        out.codeType = out.CODE_TYPE_I;
-        break;
-    case GNSS_MEASUREMENTS_CODE_TYPE_L:
-        out.codeType = out.CODE_TYPE_L;
-        break;
-    case GNSS_MEASUREMENTS_CODE_TYPE_M:
-        out.codeType = out.CODE_TYPE_M;
-        break;
-    case GNSS_MEASUREMENTS_CODE_TYPE_N:
-        out.codeType = out.CODE_TYPE_N;
-        break;
-    case GNSS_MEASUREMENTS_CODE_TYPE_P:
-        out.codeType = out.CODE_TYPE_P;
-        break;
-    case GNSS_MEASUREMENTS_CODE_TYPE_Q:
-        out.codeType = out.CODE_TYPE_Q;
-        break;
-    case GNSS_MEASUREMENTS_CODE_TYPE_S:
-        out.codeType = out.CODE_TYPE_S;
-        break;
-    case GNSS_MEASUREMENTS_CODE_TYPE_W:
-        out.codeType = out.CODE_TYPE_W;
-        break;
-    case GNSS_MEASUREMENTS_CODE_TYPE_X:
-        out.codeType = out.CODE_TYPE_X;
-        break;
-    case GNSS_MEASUREMENTS_CODE_TYPE_Y:
-        out.codeType = out.CODE_TYPE_Y;
-        break;
-    case GNSS_MEASUREMENTS_CODE_TYPE_Z:
-        out.codeType = out.CODE_TYPE_Z;
-        break;
-    case GNSS_MEASUREMENTS_CODE_TYPE_OTHER:
-    default:
-        out.codeType = inOtherCodeTypeName;
-        break;
-    }
-}
-
-void GnssMeasurementInterface::convertGnssState(GnssMeasurementsData& in, GnssMeasurement& out) {
+void GnssMeasurementInterface::convertGnssState(
+        const GnssMeasurementsData& in, GnssMeasurement& out) {
 
     if (in.stateMask & GNSS_MEASUREMENTS_STATE_CODE_LOCK_BIT)
         out.state |= out.STATE_CODE_LOCK;
@@ -456,7 +438,7 @@ void GnssMeasurementInterface::convertGnssState(GnssMeasurementsData& in, GnssMe
 }
 
 void GnssMeasurementInterface::convertGnssAccumulatedDeltaRangeState(
-        GnssMeasurementsData& in, GnssMeasurement& out) {
+        const GnssMeasurementsData& in, GnssMeasurement& out) {
 
     if (in.adrStateMask & GNSS_MEASUREMENTS_ACCUMULATED_DELTA_RANGE_STATE_VALID_BIT)
         out.accumulatedDeltaRangeState |= out.ADR_STATE_VALID;
@@ -469,7 +451,7 @@ void GnssMeasurementInterface::convertGnssAccumulatedDeltaRangeState(
 }
 
 void GnssMeasurementInterface::convertGnssMultipathIndicator(
-        GnssMeasurementsData& in, GnssMeasurement& out) {
+        const GnssMeasurementsData& in, GnssMeasurement& out) {
 
     switch (in.multipathIndicator) {
     case GNSS_MEASUREMENTS_MULTIPATH_INDICATOR_PRESENT:
@@ -485,7 +467,7 @@ void GnssMeasurementInterface::convertGnssMultipathIndicator(
     }
 }
 
-void GnssMeasurementInterface::convertGnssSatellitePvtFlags(GnssMeasurementsData& in,
+void GnssMeasurementInterface::convertGnssSatellitePvtFlags(const GnssMeasurementsData& in,
                                                             GnssMeasurement& out) {
 
     if (in.satellitePvt.flags & GNSS_SATELLITE_PVT_POSITION_VELOCITY_CLOCK_INFO_BIT)
@@ -497,7 +479,7 @@ void GnssMeasurementInterface::convertGnssSatellitePvtFlags(GnssMeasurementsData
 }
 
 void GnssMeasurementInterface::convertGnssSatellitePvt(
-        GnssMeasurementsData& in, GnssMeasurement& out) {
+        const GnssMeasurementsData& in, GnssMeasurement& out) {
 
     // flags
     convertGnssSatellitePvtFlags(in, out);
@@ -522,10 +504,37 @@ void GnssMeasurementInterface::convertGnssSatellitePvt(
     out.satellitePvt.ionoDelayMeters = in.satellitePvt.ionoDelayMeters;
     // tropoDelayMeters
     out.satellitePvt.tropoDelayMeters = in.satellitePvt.tropoDelayMeters;
+
+    // timeOfClockSeconds
+    out.satellitePvt.timeOfClockSeconds = in.satellitePvt.TOC;
+    // issueOfDataClock
+    out.satellitePvt.issueOfDataClock = in.satellitePvt.IODC;
+    // timeOfEphemerisSeconds
+    out.satellitePvt.timeOfEphemerisSeconds = in.satellitePvt.TOE;
+    // issueOfDataEphemeris
+    out.satellitePvt.issueOfDataEphemeris = in.satellitePvt.IODE;
+    // ephemerisSource
+    switch (in.satellitePvt.ephemerisSource) {
+    case GNSS_EPHEMERIS_SOURCE_EXT_DEMODULATED:
+        out.satellitePvt.ephemerisSource = SatellitePvt::SatelliteEphemerisSource::DEMODULATED;
+        break;
+    case GNSS_EPHEMERIS_SOURCE_EXT_SERVER_NORMAL:
+        out.satellitePvt.ephemerisSource = SatellitePvt::SatelliteEphemerisSource::SERVER_NORMAL;
+        break;
+    case GNSS_EPHEMERIS_SOURCE_EXT_SERVER_LONG_TERM:
+        out.satellitePvt.ephemerisSource =
+                    SatellitePvt::SatelliteEphemerisSource::SERVER_LONG_TERM;
+        break;
+    case GNSS_EPHEMERIS_SOURCE_EXT_OTHER:
+    case GNSS_EPHEMERIS_SOURCE_EXT_INVALID:
+    default:
+        out.satellitePvt.ephemerisSource = SatellitePvt::SatelliteEphemerisSource::OTHER;
+        break;
+    }
 }
 
 void GnssMeasurementInterface::convertGnssClock(
-        GnssMeasurementsClock& in, GnssClock& out) {
+        const GnssMeasurementsClock& in, GnssClock& out) {
 
     // gnssClockFlags
     if (in.flags & GNSS_MEASUREMENTS_CLOCK_FLAGS_LEAP_SECOND_BIT)
@@ -571,14 +580,14 @@ void GnssMeasurementInterface::convertGnssClock(
 }
 
 void GnssMeasurementInterface::convertElapsedRealtimeNanos(
-        GnssMeasurementsNotification& in, ElapsedRealtime& elapsedRealtime) {
+        const GnssMeasurementsNotification& in, ElapsedRealtime& elapsedRealtime) {
 
     if (in.clock.flags & GNSS_MEASUREMENTS_CLOCK_FLAGS_ELAPSED_REAL_TIME_BIT) {
         elapsedRealtime.flags |= elapsedRealtime.HAS_TIMESTAMP_NS;
         elapsedRealtime.timestampNs = in.clock.elapsedRealTime;
         elapsedRealtime.flags |= elapsedRealtime.HAS_TIME_UNCERTAINTY_NS;
         elapsedRealtime.timeUncertaintyNs = in.clock.elapsedRealTimeUnc;
-        LOC_LOGd("elapsedRealtime.timestampNs=%" PRIi64 ""
+        LOC_LOGa("elapsedRealtime.timestampNs=%" PRIi64 ""
                  " elapsedRealtime.timeUncertaintyNs=%lf elapsedRealtime.flags=0x%X",
                  elapsedRealtime.timestampNs,
                  elapsedRealtime.timeUncertaintyNs, elapsedRealtime.flags);
@@ -586,9 +595,9 @@ void GnssMeasurementInterface::convertElapsedRealtimeNanos(
 }
 
 void GnssMeasurementInterface::printGnssData(GnssData& data) {
-    LOC_LOGd(" Measurements Info for %zu satellites", data.measurements.size());
+    LOC_LOGa(" Measurements Info for %zu satellites", data.measurements.size());
     for (size_t i = 0; i < data.measurements.size(); i++) {
-        LOC_LOGd("%zu : flags: 0x%08x,"
+        LOC_LOGa("%zu : flags: 0x%08x,"
                  " svid: %d,"
                  " signalType.constellation: %u,"
                  " signalType.carrierFrequencyHz: %.2f,"
@@ -617,7 +626,7 @@ void GnssMeasurementInterface::printGnssData(GnssData& data) {
                  i + 1,
                  data.measurements[i].flags,
                  data.measurements[i].svid,
-                 data.measurements[i].signalType.constellation,
+                 (uint32_t)data.measurements[i].signalType.constellation,
                  data.measurements[i].signalType.carrierFrequencyHz,
                  data.measurements[i].signalType.codeType.c_str(),
                  data.measurements[i].timeOffsetNs,
@@ -634,7 +643,7 @@ void GnssMeasurementInterface::printGnssData(GnssData& data) {
                  data.measurements[i].carrierCycles,
                  data.measurements[i].carrierPhase,
                  data.measurements[i].carrierPhaseUncertainty,
-                 data.measurements[i].multipathIndicator,
+                 (uint32_t)data.measurements[i].multipathIndicator,
                  data.measurements[i].snrDb,
                  data.measurements[i].agcLevelDb,
                  data.measurements[i].fullInterSignalBiasNs,
@@ -642,7 +651,7 @@ void GnssMeasurementInterface::printGnssData(GnssData& data) {
                  data.measurements[i].satelliteInterSignalBiasNs,
                  data.measurements[i].satelliteInterSignalBiasUncertaintyNs
             );
-        LOC_LOGd("      satellitePvt.flags: 0x%04x,"
+        LOC_LOGa("      satellitePvt.flags: 0x%04x,"
                  " satellitePvt.satPosEcef.posXMeters: %.2f,"
                  " satellitePvt.satPosEcef.posYMeters: %.2f,"
                  " satellitePvt.satPosEcef.posZMeters: %.2f,"
@@ -655,7 +664,12 @@ void GnssMeasurementInterface::printGnssData(GnssData& data) {
                  " satellitePvt.satClockInfo.satTimeCorrectionMeters: %.2f,"
                  " satellitePvt.satClockInfo.satClkDriftMps: %.2f,"
                  " satellitePvt.ionoDelayMeters: %.2f,"
-                 " satellitePvt.tropoDelayMeters: %.2f",
+                 " satellitePvt.tropoDelayMeters: %.2f"
+                 " satellitePvt.timeOfClockSeconds: %" PRIi64 ""
+                 " satellitePvt.issueOfDataClock: %d"
+                 " satellitePvt.timeOfEphemerisSeconds: %" PRIi64 ""
+                 " satellitePvt.issueOfDataEphemeris: %d"
+                 " satellitePvt.ephemerisSource: %d",
                  data.measurements[i].satellitePvt.flags,
                  data.measurements[i].satellitePvt.satPosEcef.posXMeters,
                  data.measurements[i].satellitePvt.satPosEcef.posYMeters,
@@ -669,10 +683,15 @@ void GnssMeasurementInterface::printGnssData(GnssData& data) {
                  data.measurements[i].satellitePvt.satClockInfo.satTimeCorrectionMeters,
                  data.measurements[i].satellitePvt.satClockInfo.satClkDriftMps,
                  data.measurements[i].satellitePvt.ionoDelayMeters,
-                 data.measurements[i].satellitePvt.tropoDelayMeters
+                 data.measurements[i].satellitePvt.tropoDelayMeters,
+                 data.measurements[i].satellitePvt.timeOfClockSeconds,
+                 data.measurements[i].satellitePvt.issueOfDataClock,
+                 data.measurements[i].satellitePvt.timeOfEphemerisSeconds,
+                 data.measurements[i].satellitePvt.issueOfDataEphemeris,
+                 (int)data.measurements[i].satellitePvt.ephemerisSource
             );
     }
-    LOC_LOGd(" Clocks Info "
+    LOC_LOGa(" Clocks Info "
              " gnssClockFlags: 0x%04x,"
              " leapSecond: %d,"
              " timeNs: %" PRId64
@@ -696,16 +715,26 @@ void GnssMeasurementInterface::printGnssData(GnssData& data) {
              data.clock.driftNsps,
              data.clock.driftUncertaintyNsps,
              data.clock.hwClockDiscontinuityCount,
-             data.clock.referenceSignalTypeForIsb.constellation,
+             (uint32_t)data.clock.referenceSignalTypeForIsb.constellation,
              data.clock.referenceSignalTypeForIsb.carrierFrequencyHz,
              data.clock.referenceSignalTypeForIsb.codeType.c_str());
-    LOC_LOGd(" ElapsedRealtime "
+    LOC_LOGa(" ElapsedRealtime "
              " flags: 0x%08x,"
              " timestampNs: %" PRId64", "
              " timeUncertaintyNs: %.2f",
              data.elapsedRealtime.flags,
              data.elapsedRealtime.timestampNs,
              data.elapsedRealtime.timeUncertaintyNs);
+    for (size_t i = 0; i < data.gnssAgcs.size(); i++) {
+        LOC_LOGa("%zu : "
+                 " gnssAgcs.agcLevelDb: %.2f,"
+                 " gnssAgcs.constellation: %u,"
+                 " gnssAgcs.carrierFrequencyHz: %" PRIi64 "",
+                 i,
+                 data.gnssAgcs[i].agcLevelDb,
+                 (uint32_t)data.gnssAgcs[i].constellation,
+                 data.gnssAgcs[i].carrierFrequencyHz);
+    }
 }
 }  // namespace implementation
 }  // namespace aidl

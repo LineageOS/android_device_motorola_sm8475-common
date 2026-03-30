@@ -26,15 +26,23 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #ifndef ILOCATIONAPI_H
 #define ILOCATIONAPI_H
 
 #include "LocationDataTypes.h"
+#include <string>
 
 class ILocationAPI
 {
 public:
     virtual ~ILocationAPI(){};
+    virtual void destroy(locationApiDestroyCompleteCallback destroyCompleteCb=nullptr) = 0;
 
     /** @brief Updates/changes the callbacks that will be called.
         mandatory callbacks must be present for callbacks to be successfully updated
@@ -53,7 +61,7 @@ public:
                 LOCATION_ERROR_ALREADY_STARTED if a startTracking session is already in progress
                 LOCATION_ERROR_CALLBACK_MISSING if no trackingCallback was passed
                 LOCATION_ERROR_INVALID_PARAMETER if LocationOptions parameter is invalid */
-    virtual uint32_t startTracking(TrackingOptions&) = 0;
+    virtual uint32_t startTracking(const TrackingOptions&) = 0;
 
     /** @brief Stops a tracking session associated with id parameter.
         responseCallback returns:
@@ -66,7 +74,7 @@ public:
                 LOCATION_ERROR_SUCCESS if successful
                 LOCATION_ERROR_INVALID_PARAMETER if LocationOptions parameters are invalid
                 LOCATION_ERROR_ID_UNKNOWN if id is not associated with a tracking session */
-    virtual void updateTrackingOptions(uint32_t id, TrackingOptions&) = 0;
+    virtual void updateTrackingOptions(uint32_t id, const TrackingOptions&) = 0;
 
     /* ================================== BATCHING ================================== */
 
@@ -86,7 +94,7 @@ public:
                 LOCATION_ERROR_CALLBACK_MISSING if no batchingCallback
                 LOCATION_ERROR_INVALID_PARAMETER if a parameter is invalid
                 LOCATION_ERROR_NOT_SUPPORTED if batching is not supported */
-    virtual uint32_t startBatching(BatchingOptions&) = 0;
+    virtual uint32_t startBatching(const BatchingOptions&) = 0;
 
     /** @brief Stops a batching session associated with id parameter.
         responseCallback returns:
@@ -99,7 +107,7 @@ public:
                 LOCATION_ERROR_SUCCESS if successful
                 LOCATION_ERROR_INVALID_PARAMETER if LocationOptions parameters are invalid
                 LOCATION_ERROR_ID_UNKNOWN if id is not associated with a batching session */
-    virtual void updateBatchingOptions(uint32_t id, BatchingOptions&) = 0;
+    virtual void updateBatchingOptions(uint32_t id, const BatchingOptions&) = 0;
 
     /** @brief Gets a number of locations that are currently stored/batched
        on the low power processor, delivered by the batchingCallback passed in createInstance.
@@ -110,6 +118,20 @@ public:
                 LOCATION_ERROR_ID_UNKNOWN if id is not associated with a batching session */
     virtual void getBatchedLocations(uint32_t id, size_t count) = 0;
 
+    /**
+     * Return the batch size (in number of location objects available in this
+     * hardware implementation.)
+     *
+     * If the available size is variable, for example, based on other operations
+     * consuming memory, this is the minimum size guaranteed to be available
+     * for batching operations.
+     *
+     * This may, for example, be used by the upper layer, to decide on the
+     * batching interval and whether the AP should be woken up or not.
+     *
+     * @return batchSize number of location objects supported per batch
+     */
+    virtual int32_t getBatchSize() { return 20; }
     /* ================================== GEOFENCE ================================== */
 
     /** @brief Adds any number of geofences and returns an array of geofence ids that
@@ -163,12 +185,101 @@ public:
                 LOCATION_ERROR_INVALID_PARAMETER if any parameters in GnssNiResponse are invalid
                 LOCATION_ERROR_ID_UNKNOWN if id does not match a gnssNiCallback */
     virtual void gnssNiResponse(uint32_t id, GnssNiResponse response) = 0;
+
+    /** @brief enableNetworkProvider enables Network Provider */
+    virtual void enableNetworkProvider() {}
+
+    /** @brief disableNetworkProvider disables Network Provider */
+    virtual void disableNetworkProvider() {}
+
+    /** @brief startNetworkLocation starts tracking session for
+       network location request */
+    virtual void startNetworkLocation(trackingCallback* callback) {}
+
+    /** @brief stopNetworkLocation stops the ongoing tracking session for
+       network location request */
+    virtual void stopNetworkLocation(trackingCallback* callback) {}
+
+    /** @brief Get energy consumed info of modem GNSS engine */
+    virtual void getGnssEnergyConsumed(gnssEnergyConsumedCallback gnssEnergyConsumedCb,
+            responseCallback responseCb) {}
+
+    /** @brief Retrieve single-shot terrestrial position using the set of
+        specified terrestrial technologies. */
+    virtual void getSingleTerrestrialPosition(uint32_t timeoutMsec,
+            TerrestrialTechMask techMask,
+            float horQoS, trackingCallback terrestrialPositionCallback,
+            responseCallback responseCb) {}
+
+    /** @brief  Register/update listener to receive location system info
+        that are not tied with positioning session, e.g.: next leap
+        second event. */
+    virtual void updateLocationSystemInfoListener(
+            locationSystemInfoCallback locationSystemInfoCb,
+            responseCallback responseCb) {}
+
+    /** @brief
+        Get Debug Report
+
+        @param
+        report: GnssDebugReport structure
+    */
+    virtual void getDebugReport(GnssDebugReport& report) {}
+
+    /** @brief
+        Set callback and receive antenna info
+    */
+    virtual uint32_t getAntennaInfo(AntennaInfoCallback* cb) {
+        return 0;
+    }
 };
 
 class ILocationControlAPI
 {
 public:
     virtual ~ILocationControlAPI(){};
+
+    /* @brief Destroy/cleans up the instance, which should be called when
+       ILocationControlAPI object is no longer needed.*/
+    virtual void destroy() = 0;
+
+    /** @brief
+        API to update LocationControlCallbacks.
+
+        @param
+        callbacks: LocationControlCallbacks structure.
+
+        @return
+        Returns success or failure, i.e. zero or non-zero respectively.
+    */
+    virtual uint32_t updateCallbacks(LocationControlCallbacks&) {
+        return false;
+    };
+
+    /* @brief Enable will enable specific location technology to be used for calculation
+       locations and will effectively start a control session if call is successful,
+       which returns a session id that will be returned in responseCallback to match
+       command with response. The session id is also needed to call the disable command.
+       This effect is global for all clients of LocationAPI
+        responseCallback returns:
+                LOCATION_ERROR_SUCCESS if successful
+                LOCATION_ERROR_ALREADY_STARTED if an enable was already called for this techType
+                LOCATION_ERROR_INVALID_PARAMETER if any parameters are invalid
+                LOCATION_ERROR_GENERAL_FAILURE if failure for any other reason */
+    virtual uint32_t enable(LocationTechnologyType techType) {
+        return LOCATION_ERROR_GENERAL_FAILURE;
+    }
+
+    /* @brief Disable will disable specific location technology to be used for calculation
+       locations and effectively ends the control session if call is successful.
+       id parameter is the session id that was returned in enable responseCallback for techType.
+       The session id is no longer valid after disable's responseCallback returns success.
+       This effect is global for all clients of LocationAPI
+        responseCallback returns:
+                LOCATION_ERROR_SUCCESS if successful
+                LOCATION_ERROR_ID_UNKNOWN if id was not returned from responseCallback from enable
+                LOCATION_ERROR_GENERAL_FAILURE if failure for any other reason */
+    virtual void disable(uint32_t id) {}
 
     /** @brief Updates the gnss specific configuration, which returns a session id array
        with an id for each of the bits set in GnssConfig.flags, order from low bits to high bits.
@@ -181,6 +292,26 @@ public:
                 LOCATION_ERROR_GENERAL_FAILURE if failure for any other reason */
     virtual uint32_t* gnssUpdateConfig(const GnssConfig& config) = 0;
 
+    /* @brief gnssGetConfig fetches the current constellation and SV configuration
+       on the GNSS engine.
+       Returns a session id array with an id for each of the bits set in
+       the mask parameter, order from low bits to high bits.
+       Response is sent via the registered gnssConfigCallback.
+       This effect is global for all clients of LocationAPI
+       collectiveResponseCallback returns:
+           LOCATION_ERROR_SUCCESS if session was successful
+           LOCATION_ERROR_INVALID_PARAMETER if any parameter is invalid
+           LOCATION_ERROR_CALLBACK_MISSING If no gnssConfigCallback
+                                           was passed in createInstance
+           LOCATION_ERROR_NOT_SUPPORTED If read of requested configuration
+                                        is not supported
+
+      PLEASE NOTE: It is caller's resposibility to FREE the memory of the return value.
+                   The memory must be freed by delete [].*/
+    virtual uint32_t* gnssGetConfig(GnssConfigFlagsMask mask) {
+        return nullptr;
+    }
+
     /** @brief Delete specific gnss aiding data for testing, which returns a session id
        that will be returned in responseCallback to match command with response.
        Only allowed in userdebug builds. This effect is global for all clients of ILocationAPI.
@@ -188,7 +319,7 @@ public:
                 LOCATION_ERROR_SUCCESS if successful
                 LOCATION_ERROR_INVALID_PARAMETER if any parameters are invalid
                 LOCATION_ERROR_NOT_SUPPORTED if build is not userdebug */
-    virtual uint32_t gnssDeleteAidingData(GnssAidingData& data) = 0;
+    virtual uint32_t gnssDeleteAidingData(const GnssAidingData& data) = 0;
 
     /** @brief
         Configure the constellation and SVs to be used by the GNSS engine on
@@ -362,7 +493,8 @@ public:
                 LOCATION_ERROR_SUCCESS if successful
                 LOCATION_ERROR_INVALID_PARAMETER if any parameters are invalid
     */
-    virtual uint32_t configDeadReckoningEngineParams(const DeadReckoningEngineConfig& dreConfig)=0;
+    virtual uint32_t configDeadReckoningEngineParams(
+            const DeadReckoningEngineConfig& dreConfig)=0;
 
     /** @brief
         This API is used to instruct the specified engine to be in
@@ -428,12 +560,19 @@ public:
         device will generate and deliver to the location api clients
         that register to receive NMEA sentences. <br/>
 
+        @param
+        nmeaDatumType: specify the geodetic datum type to be used
+        when generating NMEA sentences. If this parameter is not
+        specified, it will default to WGS-84. <br/>
+
         @return
         A session id that will be returned in responseCallback to
         match command with response.
     */
     virtual uint32_t configOutputNmeaTypes(
-            GnssNmeaTypesMask enabledNmeaTypes) = 0;
+            GnssNmeaTypesMask enabledNmeaTypes,
+            GnssGeodeticDatumType nmeaDatumType = GEODETIC_TYPE_WGS_84,
+            LocReqEngineTypeMask locReqEngTypeMask = LOC_REQ_ENGINE_FUSED_BIT) = 0;
 
   /** @brief
         This API is used to send platform power events to GNSS adapters in order
@@ -445,7 +584,263 @@ public:
         @return
         No return value.
     */
-    virtual void powerStateEvent(PowerStateType /*powerState*/) {};
+    virtual void powerStateEvent(PowerStateType powerState) {};
+    /** @brief
+        This API is used to inject location into modem.
+
+        @param
+        location: location that contains PVT info. <br/>
+
+        @return
+        none
+    */
+    virtual void odcpiInject(const ::Location& location) {}
+
+    /** @brief
+        Resets all cached network info in HAL.
+    */
+    virtual void resetNetworkInfo() {};
+
+    /** @brief
+        Updates battery status in HAL as indicated by framework
+
+        @param
+        charging: Battery charging status
+    */
+    virtual void updateBatteryStatus(bool charging) {};
+
+    /** @brief
+        Inject location
+
+        @param
+        latitude : Location latitude in degree
+        longitude : Location longitude in degree
+        accuracy : Location accuracy in meters
+    */
+    virtual void injectLocation(double latitude, double longitude, float accuracy) {};
+
+    /** @brief
+        Request to open AGPS Data Connection
+
+        @param
+        apgpsType: Type of agps data connection to open
+        apnName: Access Point Name
+        apnLen: Length of apName string
+        ipType: APN Bearer Type
+    */
+    virtual void agpsDataConnOpen(AGpsType agpsType, const char* apnName,
+            int apnLen, int ipType) {}
+
+    /** @brief
+        Request to close AGPS data connection
+
+        @param
+        apgpsType: Type of agps data connection to close
+    */
+    virtual void agpsDataConnClosed(AGpsType agpsType) {}
+
+    /** @brief
+        Inform AGPS data connection failure
+
+        @param
+        apgpsType: Type of agps data connection that failed
+    */
+    virtual void agpsDataConnFailed(AGpsType agpsType) {}
+
+    /** @brief
+        Update connection status
+
+        @param
+        connected: Connected Status
+        type: Type of connection, Eth, wifi, mobile etc
+        roaming: Roaming status
+        networkHandle: NetworkHandle type.
+        apn: Access Point Name if needed
+
+    */
+    virtual void updateConnectionStatus(bool connected, int8_t type, bool roaming,
+                                   NetworkHandle networkHandle, const std::string& apn) {}
+
+    /** @brief
+        Set measurement correction
+
+        @param
+        gnssMeasCorr GnssMeasurementCorrections structure
+    */
+    virtual bool measCorrSetCorrections(const GnssMeasurementCorrections& gnssMeasCorr) {
+        return false;
+    }
+
+    /** @brief
+        Close measurement corrections interface
+    */
+    virtual void measCorrClose() {}
+
+    /** @brief
+        Enables/disables permissions to non-framework application use of GNSS
+
+        @param
+        enable: true/false to enable / disable permission
+    */
+    virtual void enableNfwLocationAccess(const std::vector<std::string>& enabledNfws) {}
+
+    /** @brief
+        Set the EULA opt-in status from system user. This is used as consent to
+        use network-based positioning.
+
+        @param
+        userConsnt: user agrees to use GTP service or not.
+
+        @return
+        A session id that will be returned in responseCallback to
+        match command with response.
+    */
+    virtual uint32_t setOptInStatus(bool userConsent) {
+        return 0;
+    }
+
+    /** @brief
+        This API is used to instruct the specified engine to use
+        the provided integrity risk level for protection level
+        calculation in position report. This API can be called via
+        a position session is in progress.  <br/>
+
+        Prior to calling this API for a particular engine, the
+        engine shall not calcualte the protection levels and shall
+        not include the protection levels in its position report.
+        <br/>
+
+        Currently, only PPE engine will support this function.
+        LocConfigCb() will return LOC_INT_RESPONSE_NOT_SUPPORTED
+        when request is made to none-PPE engines. <br/>
+
+        @param
+        engType: the engine that is instructed to use the specified
+        integrity risk level for protection level calculation. The
+        protection level will be returned back in
+        LocationClientApi::GnssLocation. <br/>
+
+        @param
+        integrityRisk: the integrity risk level used for
+        calculating protection level in
+        LocationClientApi::GnssLocation. <br/>
+
+        The integrity risk is defined as a probability per epoch,
+        in unit of 2.5e-10. The valid range for actual integrity is
+        [2.5e-10, 1-2.5e-10]), this corresponds to range of [1,
+        4e9-1] of this parameter. <br/>
+
+        If the specified value of integrityRisk is NOT in the valid
+        range of [1, 4e9-1], the engine shall disable/invalidate
+        the protection levels in the position report. <br/>
+
+        @return true, if the API request has been accepted. The
+        status will be returned via configCB. When returning
+        true, LocConfigCb() will be invoked to deliver
+        asynchronous processing status.
+        <br/>
+
+        @return false, if the API request has not been accepted for
+        further processing. <br/>
+    */
+    virtual uint32_t configEngineIntegrityRisk(
+            PositioningEngineMask engType, uint32_t integrityRisk) = 0;
+
+    /** @brief
+        This API is used to enable/disable the XTRA (Predicted GNSS
+        Satellite Orbit Data) feature on device. If XTRA feature is
+        to be enabled, this API is also used to configure the
+        various XTRA settings in the device.
+
+        Client should wait for the command to finish, e.g.: via
+        configCb received before issuing a second configXtraParams
+        command. Behavior is not defined if client issues a second
+        request of configXtraParams without waiting for the finish of the
+        previous configXtraParams request.
+
+        Please note that configXtraParamsParams is not incremental, as a
+        second call of configXtraParamsParams will always overwrite the
+        previous one. Also, the configured xtra parameters will be
+        made persistent. However, to be consistent with other
+        location integration API, it is recommended to config xtra
+        params using location integration API upon device bootup.
+        <br/>
+
+        @param
+        enable: true to enable XTRA feature on the device
+                false to disable XTRA feature on the device. When
+                setting to false, both XTRA assistance data and NTP
+                time download will be disabled.
+
+        @param
+        configParams:pointer to XtraConfigParams to be used by XTRA
+        daemon module when enabling XTRA feature on the device.
+        if xtra feature is to be disabled, this parameter should be
+        set to NULL. If it is not set to NULL, the parameter will be
+        ignored.
+
+         @return
+         A session id that will be returned in responseCallback to
+         match command with response.
+    */
+    virtual uint32_t configXtraParams(
+            bool enable, const XtraConfigParams& configParams) = 0;
+
+    /** @brief
+        Inject Merkle tree configure buffer which reads from a .xml configure file.
+        Configure file contains Merkle Root, Merkle Nodes and information for
+        up to 2 public keys.
+        Please note that caller should free the merkleTreeXml. <br/>
+        @param
+        merkleTreeXml: char buffer read from Merkle Tree configure file <br/>
+
+        @param
+        xmlSize: the length of char buffer
+
+        @return
+        A session id that will be returned in responseCallback to
+        match command with response.
+    */
+    virtual uint32_t configMerkleTree(const char * merkleTreeXml, int xmlSize) = 0;
+
+    /** @brief
+        API to Enable/Disable OSNMA operation in PE/CD;
+        @param
+        isEnabled - The flag to indicate enable or disable OSNMA
+        @return
+        A session id that will be returned in responseCallback to
+        match command with response.
+    */
+    virtual uint32_t configOsnmaEnablement(bool IsEnabled) = 0;
+
+    /** @brief
+        API to support passing map-matched Feedback data to the DRE engine.
+        Clients should use the below API to pass Map-matched data that will
+        be used by the DRE engine to compute position reports.<br/>
+
+        @param
+        GnssMapMatchedData: structure to store MMF data fields
+                        <br/>
+
+        @return
+        A session id that will be returned in responseCallback to
+        match command with response.
+    */
+
+    virtual uint32_t gnssInjectMmfData(const GnssMapMatchedData& data) = 0;
+
+    /** @brief
+        API to support passing of End user consent to use XTRA services.
+        Clients should use the below API to pass End user intent.<br/>
+
+        @param
+        xtraUserConsent:  Boolean flag to convey end user intent <br/>
+
+        @return
+        A session id that will be returned in responseCallback to
+        match command with response.
+    */
+    virtual uint32_t configureUserConsentForXtra(const bool xtraUserConsent) = 0;
 };
 
 #endif /* ILOCATIONAPI_H */
