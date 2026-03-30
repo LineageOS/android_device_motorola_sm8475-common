@@ -1,7 +1,13 @@
 # Any TARGET_BOARD_PLATFORM being built that does
 # not want vendor location modules built should be
 # added to this exclude list to prevent building
-LOC_BOARD_PLATFORM_EXCLUDE_LIST :=
+LOC_BOARD_PLATFORM_EXCLUDE_LIST := anorak
+LOC_BOARD_PLATFORM_EXCLUDE_LIST += niobe
+LOC_BOARD_PLATFORM_EXCLUDE_LIST += seraph
+
+#lowi only exception list
+LOC_BOARD_PLATFORM_LOWI_ONLY_LIST := niobe
+LOC_BOARD_PLATFORM_LOWI_ONLY_LIST += seraph
 
 # Define BOARD_VENDOR_QCOM_GPS_LOC_API_HARDWARE if:
 # EXCLUDE_LOCATION_FEATURES is not true AND
@@ -17,3 +23,7 @@ ifneq ($(EXCLUDE_LOCATION_FEATURES),true)
     endif
   endif #LOC_BOARD_PLATFORM_EXCLUDE_LIST check
 endif #EXCLUDE_LOCATION_FEATURES check
+
+ifneq ($(findstring $(TARGET_BOARD_PLATFORM),$(LOC_BOARD_PLATFORM_LOWI_ONLY_LIST)),)
+  GPS_LOWI_ONLY_BUILD := true
+endif

@@ -6,7 +6,20 @@ GNSS_CFLAGS = [
     "-Wunused-variable",
     "-Wunused-function",
     "-Wimplicit-fallthrough",
-    "-Wno-undefined-bool-conversion",
+    "-Wno-unused-parameter",
+    "-Wno-error=unused-parameter",
+    "-Wno-error=macro-redefined",
+    "-Wno-error=reorder",
+    "-Wno-error=missing-braces",
+    "-Wno-error=self-assign",
+    "-Wno-error=enum-conversion",
+    "-Wno-error=logical-op-parentheses",
+    "-Wno-error=null-arithmetic",
+    "-Wno-error=null-conversion",
+    "-Wno-error=parentheses-equality",
+    "-Wno-error=undefined-bool-conversion",
+    "-Wno-error=tautological-compare",
+    "-Wno-error=switch",
 ]
 
 soong_config_module_type {
@@ -15,6 +28,7 @@ soong_config_module_type {
     config_namespace: "qtilocation",
     bool_variables: [
         "feature_nhz",
+        "feature_locauto",
     ],
     properties: [
         "cflags",
@@ -27,6 +41,9 @@ qtilocation_cc_defaults {
     soong_config_variables: {
         feature_nhz: {
             cflags: ["-DFEATURE_NHZ_ENABLED"],
+        },
+        feature_locauto: {
+            cflags: ["-DFEATURE_AUTOMOTIVE"],
         },
     },
 }

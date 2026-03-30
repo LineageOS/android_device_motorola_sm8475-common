@@ -30,7 +30,7 @@
 /*
 Changes from Qualcomm Innovation Center are provided under the following license:
 
-Copyright (c) 2022, 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted (subject to the limitations in the
@@ -63,6 +63,11 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*
+Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
 #ifndef __LOC_CONTEXT_BASE__
 #define __LOC_CONTEXT_BASE__
 
@@ -73,12 +78,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <LocApiBase.h>
 #include <LBSProxyBase.h>
 #include <loc_cfg.h>
-#ifdef NO_UNORDERED_SET_OR_MAP
-    #include <map>
-    #define unordered_map map
-#else
-    #include <unordered_map>
-#endif
+#include <unordered_map>
 
 /* GPS.conf support */
 /* NOTE: the implementaiton of the parser casts number
@@ -154,6 +154,16 @@ typedef struct
     double         VELOCITY_RANDOM_WALK_SPECTRAL_DENSITY;
 } loc_sap_cfg_s_type;
 
+// data struct to hold izat process info
+struct izat_process_info {
+   bool valueAddedProcessEnabled;
+   bool gtpDaemonEnabled;
+   bool slimDaemonEnabled;
+   bool eDgnssDaemonEnabled;
+   bool engineServiceEnabled;
+   EngineServiceInfo engineServiceInfo;
+};
+
 using namespace loc_util;
 
 namespace loc_core {
@@ -165,6 +175,8 @@ class ContextBase {
     LocApiBase* createLocApi(LOC_API_ADAPTER_EVENT_MASK_T excludedMask);
     static const loc_param_s_type mGps_conf_table[];
     static const loc_param_s_type mSap_conf_table[];
+    static uint32_t mAntennaInfoVectorSize;
+
 protected:
     const LBSProxyBase* mLBSProxy;
     const MsgTask* mMsgTask;
@@ -203,6 +215,7 @@ public:
     }
     static loc_gps_cfg_s_type mGps_conf;
     static loc_sap_cfg_s_type mSap_conf;
+    static izat_process_info   mIzat_process_conf;
     static bool sIsEngineCapabilitiesKnown;
     static uint64_t sSupportedMsgMask;
     static uint8_t sFeaturesSupported[MAX_FEATURE_LENGTH];
@@ -211,7 +224,8 @@ public:
     static LocationCapabilitiesMask sQwesFeatureMask;
     static LocationHwCapabilitiesMask sHwCapabilitiesMask;
 
-    void readConfig();
+    static void readConfig();
+    static void readIZatConfForValueAddedProcess();
     static uint32_t getCarrierCapabilities();
     void setEngineCapabilities(uint64_t supportedMsgMask,
             uint8_t *featureList, bool gnssMeasurementSupported);
@@ -337,6 +351,34 @@ public:
                        sQwesFeatureMask &= ~LOCATION_CAPABILITIES_QWES_WIFI_RTT_POSITIONING;
                    }
                break;
+               case LOCATION_QWES_FEATURE_NLOS_ML20:
+                   if (itr->second) {
+                       sQwesFeatureMask |= LOCATION_CAPABILITIES_NLOS_ML20;
+                   } else {
+                       sQwesFeatureMask &= ~LOCATION_CAPABILITIES_NLOS_ML20;
+                   }
+                   break;
+               case LOCATION_QWES_FEATURE_TYPE_WWAN_STANDARD_POSITIONING:
+                   if (itr->second) {
+                       sQwesFeatureMask |= LOCATION_CAPABILITIES_QWES_WWAN_STANDARD_POSITIONING;
+                   } else {
+                       sQwesFeatureMask &= ~LOCATION_CAPABILITIES_QWES_WWAN_STANDARD_POSITIONING;
+                   }
+               break;
+               case LOCATION_QWES_FEATURE_TYPE_WWAN_PREMIUM_POSITIONING:
+                   if (itr->second) {
+                       sQwesFeatureMask |= LOCATION_CAPABILITIES_QWES_WWAN_PREMIUM_POSITIONING;
+                   } else {
+                       sQwesFeatureMask &= ~LOCATION_CAPABILITIES_QWES_WWAN_PREMIUM_POSITIONING;
+                   }
+               break;
+               case LOCATION_QWES_FEATURE_STATUS_GNSS_NHZ:
+                   if (itr->second) {
+                       sQwesFeatureMask |= LOCATION_CAPABILITIES_QWES_GNSS_NHZ;
+                   } else {
+                       sQwesFeatureMask &= ~LOCATION_CAPABILITIES_QWES_GNSS_NHZ;
+                   }
+               break;
            }
        }
 
@@ -386,6 +428,10 @@ public:
     */
     static inline LocationHwCapabilitiesMask getHwCapabilitiesMask() {
         return (ContextBase::sHwCapabilitiesMask);
+    }
+
+    static inline bool isAntennaInfoAvailable() {
+        return mAntennaInfoVectorSize != 0;
     }
 };
 

@@ -17,6 +17,7 @@ cc_library_shared {
     srcs: [
         "LocationAPI.cpp",
         "LocationAPIClientBase.cpp",
+        "LocationAPIUtils.cpp",
     ],
 
     cflags: ["-fno-short-enums"] + GNSS_CFLAGS,

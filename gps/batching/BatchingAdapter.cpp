@@ -26,6 +26,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
+
 #define LOG_NDEBUG 0
 #define LOG_TAG "LocSvc_BatchingAdapter"
 
@@ -44,79 +51,28 @@ BatchingAdapter::BatchingAdapter() :
     mOngoingTripTBFInterval(0),
     mTripWithOngoingTBFDropped(false),
     mTripWithOngoingTripDistanceDropped(false),
-    mSystemPowerState(POWER_STATE_UNKNOWN),
-    mBatchingTimeout(0),
+    mBatchingTimeout(20000),
     mBatchingAccuracy(1),
-    mBatchSize(0),
-    mTripBatchSize(0)
+    mBatchSize(20),
+    mTripBatchSize(600),
+    mSystemPowerState(POWER_STATE_UNKNOWN)
 {
     LOC_LOGD("%s]: Constructor", __func__);
-    readConfigCommand();
-    setConfigCommand();
+    const loc_param_s_type batching_conf_param_table[] =
+    {
+        {"BATCH_SIZE", &mBatchSize, NULL, 'n'},
+        {"OUTDOOR_TRIP_BATCH_SIZE", &mTripBatchSize, NULL, 'n'},
+        {"BATCH_SESSION_TIMEOUT", &mBatchingTimeout, NULL, 'n'},
+        {"ACCURACY", &mBatchingAccuracy, NULL, 'n'},
+    };
+    UTIL_READ_CONF(LOC_PATH_IZAT_CONF, batching_conf_param_table);
+
+    LOC_LOGd("batchSize %u tripBatchSize %u batchingAccuracy %u batchingTimeout %u ",
+            mBatchSize, mTripBatchSize, mBatchingAccuracy, mBatchingTimeout);
 
     // at last step, let us inform adapater base that we are done
     // with initialization, e.g.: ready to process handleEngineUpEvent
     doneInit();
-}
-
-void
-BatchingAdapter::readConfigCommand()
-{
-    LOC_LOGD("%s]: ", __func__);
-
-    struct MsgReadConfig : public LocMsg {
-        BatchingAdapter& mAdapter;
-        inline MsgReadConfig(BatchingAdapter& adapter) :
-            LocMsg(),
-            mAdapter(adapter) {}
-        inline virtual void proc() const {
-            uint32_t batchingTimeout = 0;
-            uint32_t batchingAccuracy = 0;
-            uint32_t batchSize = 0;
-            uint32_t tripBatchSize = 0;
-            static const loc_param_s_type batching_conf_param_table[] =
-            {
-                {"BATCH_SIZE", &batchSize, NULL, 'n'},
-                {"OUTDOOR_TRIP_BATCH_SIZE", &tripBatchSize, NULL, 'n'},
-                {"BATCH_SESSION_TIMEOUT", &batchingTimeout, NULL, 'n'},
-                {"ACCURACY", &batchingAccuracy, NULL, 'n'},
-            };
-            UTIL_READ_CONF(LOC_PATH_BATCHING_CONF, batching_conf_param_table);
-
-            LOC_LOGD("%s]: batchSize %u tripBatchSize %u batchingAccuracy %u batchingTimeout %u ",
-                     __func__, batchSize, tripBatchSize, batchingAccuracy, batchingTimeout);
-
-             mAdapter.setBatchSize(batchSize);
-             mAdapter.setTripBatchSize(tripBatchSize);
-             mAdapter.setBatchingTimeout(batchingTimeout);
-             mAdapter.setBatchingAccuracy(batchingAccuracy);
-        }
-    };
-
-    sendMsg(new MsgReadConfig(*this));
-
-}
-
-void
-BatchingAdapter::setConfigCommand()
-{
-    LOC_LOGD("%s]: ", __func__);
-
-    struct MsgSetConfig : public LocMsg {
-        BatchingAdapter& mAdapter;
-        LocApiBase& mApi;
-        inline MsgSetConfig(BatchingAdapter& adapter,
-                            LocApiBase& api) :
-            LocMsg(),
-            mAdapter(adapter),
-            mApi(api) {}
-        inline virtual void proc() const {
-            mApi.setBatchSize(mAdapter.getBatchSize());
-            mApi.setTripBatchSize(mAdapter.getTripBatchSize());
-        }
-    };
-
-    sendMsg(new MsgSetConfig(*this, *mLocApi));
 }
 
 void
@@ -164,6 +120,45 @@ BatchingAdapter::updateClientsEventMask()
 }
 
 void
+BatchingAdapter::handleEngineLockStatusEvent(EngineLockState engineLockState) {
+
+    LOC_LOGd("Engine state : %d", engineLockState);
+
+    struct MsgEngineLockStateEvent : public LocMsg {
+        BatchingAdapter& mAdapter;
+        EngineLockState mEngineLockState;
+
+        inline MsgEngineLockStateEvent(BatchingAdapter& adapter, EngineLockState engineLockState) :
+            LocMsg(),
+            mAdapter(adapter),
+            mEngineLockState(engineLockState){}
+
+        virtual void proc() const {
+            mAdapter.handleEngineLockStatus(mEngineLockState);
+        }
+    };
+
+    sendMsg(new MsgEngineLockStateEvent(*this, engineLockState));
+}
+
+void
+BatchingAdapter::handleEngineLockStatus(EngineLockState engineLockState) {
+
+    if (ENGINE_LOCK_STATE_DISABLED != engineLockState) {
+        for (auto msg: mPendingMsgs) {
+            sendMsg(msg);
+        }
+        mPendingMsgs.clear();
+
+        if ((POWER_STATE_SUSPEND != mSystemPowerState) &&
+            (POWER_STATE_DEEP_SLEEP_ENTRY != mSystemPowerState) &&
+            POWER_STATE_SHUTDOWN != mSystemPowerState) {
+            restartSessions();
+        }
+    }
+}
+
+void
 BatchingAdapter::handleEngineUpEvent()
 {
     struct MsgSSREvent : public LocMsg {
@@ -179,14 +174,18 @@ BatchingAdapter::handleEngineUpEvent()
             mAdapter.broadcastCapabilities(mAdapter.getCapabilities());
             mApi.setBatchSize(mAdapter.getBatchSize());
             mApi.setTripBatchSize(mAdapter.getTripBatchSize());
-            if ((POWER_STATE_SUSPEND != mAdapter.mSystemPowerState) &&
-                 POWER_STATE_SHUTDOWN != mAdapter.mSystemPowerState) {
-                mAdapter.restartSessions();
+            if (ENGINE_LOCK_STATE_DISABLED != mApi.getEngineLockState()) {
+                for (auto msg: mAdapter.mPendingMsgs) {
+                    mAdapter.sendMsg(msg);
+                }
+                mAdapter.mPendingMsgs.clear();
+
+                if ((POWER_STATE_SUSPEND != mAdapter.mSystemPowerState) &&
+                    (POWER_STATE_DEEP_SLEEP_ENTRY != mAdapter.mSystemPowerState) &&
+                    POWER_STATE_SHUTDOWN != mAdapter.mSystemPowerState) {
+                    mAdapter.restartSessions();
+                }
             }
-            for (auto msg: mAdapter.mPendingMsgs) {
-                mAdapter.sendMsg(msg);
-            }
-            mAdapter.mPendingMsgs.clear();
         }
     };
 
@@ -316,7 +315,7 @@ BatchingAdapter::autoReportBatchingSessionsCount()
 
 uint32_t
 BatchingAdapter::startBatchingCommand(
-        LocationAPI* client, BatchingOptions& batchOptions)
+        LocationAPI* client, const BatchingOptions& batchOptions)
 {
     uint32_t sessionId = generateSessionId();
     LOC_LOGD("%s]: client %p id %u minInterval %u minDistance %u mode %u Batching Mode %d",
@@ -333,7 +332,7 @@ BatchingAdapter::startBatchingCommand(
                                LocApiBase& api,
                                LocationAPI* client,
                                uint32_t sessionId,
-                               BatchingOptions batchOptions) :
+                               const BatchingOptions& batchOptions) :
             LocMsg(),
             mAdapter(adapter),
             mApi(api),
@@ -390,7 +389,8 @@ BatchingAdapter::startBatching(LocationAPI* client, uint32_t sessionId,
     mLocApi->startBatching(sessionId, batchingOptions, getBatchingAccuracy(), getBatchingTimeout(),
             new LocApiResponse(*getContext(),
             [this, client, sessionId, batchingOptions] (LocationError err) {
-        if (LOCATION_ERROR_SUCCESS != err) {
+        if (ENGINE_LOCK_STATE_DISABLED != mLocApi->getEngineLockState() &&
+            LOCATION_ERROR_SUCCESS != err) {
             eraseBatchingSession(client, sessionId);
         }
 
@@ -409,7 +409,7 @@ BatchingAdapter::startBatching(LocationAPI* client, uint32_t sessionId,
 
 void
 BatchingAdapter::updateBatchingOptionsCommand(LocationAPI* client, uint32_t id,
-        BatchingOptions& batchOptions)
+        const BatchingOptions& batchOptions)
 {
     LOC_LOGD("%s]: client %p id %u minInterval %u minDistance %u mode %u batchMode %u",
              __func__, client, id, batchOptions.minInterval,
@@ -426,7 +426,7 @@ BatchingAdapter::updateBatchingOptionsCommand(LocationAPI* client, uint32_t id,
                                 LocApiBase& api,
                                 LocationAPI* client,
                                 uint32_t sessionId,
-                                BatchingOptions batchOptions) :
+                                const BatchingOptions& batchOptions) :
             LocMsg(),
             mAdapter(adapter),
             mApi(api),
@@ -514,7 +514,8 @@ BatchingAdapter::stopBatching(LocationAPI* client, uint32_t sessionId, bool rest
                 new LocApiResponse(*getContext(),
                 [this, client, sessionId, flpOptions, restartNeeded, batchOptions, eraseSession]
                 (LocationError err) {
-            if (LOCATION_ERROR_SUCCESS != err) {
+            if (ENGINE_LOCK_STATE_DISABLED != mLocApi->getEngineLockState() &&
+                LOCATION_ERROR_SUCCESS != err) {
                 if (eraseSession)
                     saveBatchingSession(client, sessionId, batchOptions);
             } else {
@@ -772,7 +773,8 @@ BatchingAdapter::startTripBatchingMultiplex(LocationAPI* client, uint32_t sessio
         mLocApi->startOutdoorTripBatching(batchingOptions.minDistance,
                 batchingOptions.minInterval, getBatchingTimeout(), new LocApiResponse(*getContext(),
                 [this, client, sessionId, batchingOptions] (LocationError err) {
-            if (err == LOCATION_ERROR_SUCCESS) {
+            if (ENGINE_LOCK_STATE_DISABLED == mLocApi->getEngineLockState() ||
+                err == LOCATION_ERROR_SUCCESS) {
                 mOngoingTripDistance = batchingOptions.minDistance;
                 mOngoingTripTBFInterval = batchingOptions.minInterval;
                 LOC_LOGD("%s] New Trip started ...", __func__);
@@ -1079,10 +1081,12 @@ BatchingAdapter::updateSystemPowerState(PowerStateType systemPowerState)
 
             case POWER_STATE_SUSPEND:
             case POWER_STATE_SHUTDOWN:
+            case POWER_STATE_DEEP_SLEEP_ENTRY:
                 suspendBatchingSessions();
                 LOC_LOGd("Suspending all Batching session -- powerState: %d", systemPowerState);
                 break;
             case POWER_STATE_RESUME:
+            case POWER_STATE_DEEP_SLEEP_EXIT:
                 restartSessions();
                 LOC_LOGd("Re-starting all Batching session -- powerState: %d", systemPowerState);
                 break;
