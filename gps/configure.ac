@@ -29,13 +29,21 @@ AC_PROG_MAKE_SET
 PKG_PROG_PKG_CONFIG
 
 # Checks for libraries.
-PKG_CHECK_MODULES([GPSUTILS], [gps-utils])
+PKG_CHECK_MODULES([GPSUTILS], [qcom-gps-utils])
 AC_SUBST([GPSUTILS_CFLAGS])
 AC_SUBST([GPSUTILS_LIBS])
 
 PKG_CHECK_MODULES([LOCCORE], [loc-core])
 AC_SUBST([LOCCORE_CFLAGS])
 AC_SUBST([LOCCORE_LIBS])
+
+PKG_CHECK_MODULES([LOCBASEUTIL], [loc-base-util])
+AC_SUBST([LOCBASEUTIL_CFLAGS])
+AC_SUBST([LOCBASEUTIL_LIBS])
+
+PKG_CHECK_MODULES([LIBXML], [libxml-2.0])
+AC_SUBST([LIBXML_CFLAGS])
+AC_SUBST([LIBXML_LIBS])
 
 AC_ARG_WITH([auto_feature],
     AC_HELP_STRING([--with-auto_feature=@<:@dir@:>@],
@@ -66,6 +74,12 @@ if test "x$with_locpla_includes" != "xno"; then
 fi
 
 AC_SUBST([CPPFLAGS])
+
+AC_ARG_WITH([telsdk],
+      AC_HELP_STRING([--with-telsdk],
+         [enable telsdk, check prescence of telsdk]))
+
+AM_CONDITIONAL(USE_TELSDK, test "x${with_telsdk}" = "xyes")
 
 AC_ARG_WITH([glib],
       AC_HELP_STRING([--with-glib],

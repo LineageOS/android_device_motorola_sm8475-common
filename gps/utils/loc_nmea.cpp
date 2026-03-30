@@ -27,6 +27,42 @@
  *
  */
 
+/*
+Changes from Qualcomm Innovation Center are provided under the following license:
+
+Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted (subject to the limitations in the
+disclaimer below) provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 #define LOG_NDEBUG 0
 #define LOG_TAG "LocSvc_nmea"
 #include <loc_nmea.h>
@@ -111,6 +147,7 @@
 #define SIGNAL_ID_NAVIC_SRS    4
 #define SIGNAL_ID_NAVIC_L1SPS  5
 
+static LocPosTechMask techMaskGnss = LOC_POS_TECH_MASK_SATELLITE | LOC_POS_TECH_MASK_HYBRID;
 
 typedef struct loc_nmea_sv_meta_s
 {
@@ -146,13 +183,16 @@ typedef struct loc_sv_cache_info_s
     uint32_t bds_b1i_count;
     uint32_t bds_b1c_count;
     uint32_t bds_b2_count;
+    uint32_t bds_b2b_count;
     uint32_t navic_l5_count;
+    uint32_t navic_l1_count;
     float hdop;
     float pdop;
     float vdop;
 } loc_sv_cache_info;
 
 static GnssNmeaTypesMask mEnabledNmeaTypes = NMEA_TYPE_ALL;
+static GnssGeodeticDatumType mNmeaDatumType = GEODETIC_TYPE_WGS_84;
 
 /*===========================================================================
 FUNCTION    convert_Lla_to_Ecef
@@ -342,8 +382,15 @@ static uint32_t convert_signalType_to_signalId(GnssSignalTypeMask signalType)
         case GNSS_SIGNAL_BEIDOU_B2AQ:
             signalId = SIGNAL_ID_BDS_B2A;
             break;
+        case GNSS_SIGNAL_BEIDOU_B2BI:
+        case GNSS_SIGNAL_BEIDOU_B2BQ:
+            signalId = SIGNAL_ID_BDS_B2B;
+            break;
         case GNSS_SIGNAL_NAVIC_L5:
             signalId = SIGNAL_ID_NAVIC_L5SPS;
+            break;
+        case GNSS_SIGNAL_NAVIC_L1:
+            signalId = SIGNAL_ID_NAVIC_L1SPS;
             break;
         default:
             signalId = SIGNAL_ID_ALL_SIGNALS;
@@ -502,6 +549,9 @@ static loc_nmea_sv_meta* loc_nmea_sv_meta_init(loc_nmea_sv_meta& sv_meta,
                 case GNSS_SIGNAL_BEIDOU_B2AI:
                     sv_meta.svCount = sv_cache_info.bds_b2_count;
                     break;
+                case GNSS_SIGNAL_BEIDOU_B2BI:
+                    sv_meta.svCount = sv_cache_info.bds_b2b_count;
+                    break;
             }
             break;
         case GNSS_SV_TYPE_NAVIC:
@@ -514,6 +564,9 @@ static loc_nmea_sv_meta* loc_nmea_sv_meta_init(loc_nmea_sv_meta& sv_meta,
             switch (signalType) {
                 case GNSS_SIGNAL_NAVIC_L5:
                     sv_meta.svCount = sv_cache_info.navic_l5_count;
+                    break;
+                case GNSS_SIGNAL_NAVIC_L1:
+                    sv_meta.svCount = sv_cache_info.navic_l1_count;
                     break;
             }
             break;
@@ -617,7 +670,8 @@ SIDE EFFECTS
    N/A
 
 ===========================================================================*/
-static uint32_t loc_nmea_generate_GSA(const GpsLocationExtended &locationExtended,
+static uint32_t loc_nmea_generate_GSA(const UlpLocation &location,
+                              const GpsLocationExtended &locationExtended,
                               char* sentence,
                               int bufSize,
                               loc_nmea_sv_meta* sv_meta_p,
@@ -648,18 +702,20 @@ static uint32_t loc_nmea_generate_GSA(const GpsLocationExtended &locationExtende
     uint32_t svIdOffset = sv_meta_p->svIdOffset;
     uint64_t mask = sv_meta_p->mask;
 
+    // for non-glo, sv id need to start at 0 in GSA sentence
     if (!(sv_meta_p->svTypeMask & (1 << GNSS_SV_TYPE_GLONASS))) {
         svIdOffset = 0;
     }
 
     for (uint8_t i = 1; mask > 0 && svUsedCount < 64; i++)
     {
-        if (mask & 1)
+        if (mask & 1) {
             svUsedList[svUsedCount++] = i + svIdOffset;
+        }
         mask = mask >> 1;
     }
 
-    if (svUsedCount == 0) {
+    if (svUsedCount == 0 && (locationExtended.tech_mask & techMaskGnss)) {
         return 0;
     } else {
         sentenceNumber = 1;
@@ -679,12 +735,13 @@ static uint32_t loc_nmea_generate_GSA(const GpsLocationExtended &locationExtende
             pMarker += lengthTagBlock;
             lengthRemaining -= lengthTagBlock;
         }
-        if (sv_meta_p->totalSvUsedCount == 0)
-            fixType = '1'; // no fix
-        else if (sv_meta_p->totalSvUsedCount <= 3)
-            fixType = '2'; // 2D fix
-        else
+        if (location.gpsLocation.flags & LOC_GPS_LOCATION_HAS_ALTITUDE) {
             fixType = '3'; // 3D fix
+        } else if (location.gpsLocation.flags & LOC_GPS_LOCATION_HAS_LAT_LONG) {
+            fixType = '2'; // 2D fix
+        } else {
+            fixType = '1'; // no fix
+        }
 
         // Start printing the sentence
         // Format: $--GSA,a,x,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx,p.p,h.h,v.v,s*cc
@@ -804,9 +861,6 @@ static void loc_nmea_generate_GSV(const GnssSvNotification &svNotify,
         return;
     }
 
-    if ((1 << GNSS_SV_TYPE_GLONASS) & sv_meta_p->svTypeMask) {
-        svIdOffset = 0;
-    }
     svNumber = 1;
     sentenceNumber = 1;
     sentenceCount = svCount / 4 + (svCount % 4 != 0);
@@ -829,10 +883,13 @@ static void loc_nmea_generate_GSV(const GnssSvNotification &svNotify,
 
         for (int i=0; (svNumber <= svNotify.count) && (i < 4);  svNumber++)
         {
+            GnssSvType svType = svNotify.gnssSvs[svNumber - 1].type;
+            uint16_t   svId   = svNotify.gnssSvs[svNumber - 1].svId;
             GnssSignalTypeMask signalType = svNotify.gnssSvs[svNumber-1].gnssSignalTypeMask;
+
             if (0 == signalType) {
                 // If no signal type in report, it means default L1,G1,E1,B1I
-                switch (svNotify.gnssSvs[svNumber - 1].type)
+                switch (svType)
                 {
                     case GNSS_SV_TYPE_GPS:
                         signalType = GNSS_SIGNAL_GPS_L1CA;
@@ -862,21 +919,30 @@ static void loc_nmea_generate_GSV(const GnssSvNotification &svNotify,
                 }
             }
 
-            if ((sv_meta_p->svTypeMask & (1 << svNotify.gnssSvs[svNumber - 1].type)) &&
+            if ((sv_meta_p->svTypeMask & (1 << svType)) &&
                     sv_meta_p->signalId == convert_signalType_to_signalId(signalType))
             {
                 svIdOffset = sv_meta_p->svIdOffset;
-                if (GNSS_SV_TYPE_SBAS == svNotify.gnssSvs[svNumber - 1].type) {
-                    svIdOffset = SBAS_SV_ID_OFFSET;
+
+                if (GNSS_SV_TYPE_GLONASS == svType) {
+                    // For GLO, sv id is of PRN in range of [65, 96]
+                    svIdOffset = 0;
+                } else if (GNSS_SV_TYPE_SBAS == svType) {
+                    // only process GPS SBAS
+                    if (svId >= 120 && svId <= 158) {
+                        svIdOffset = SBAS_SV_ID_OFFSET;
+                    } else {
+                        continue;
+                    }
                 }
-                if (GNSS_SV_TYPE_GLONASS == svNotify.gnssSvs[svNumber - 1].type &&
-                    GLO_SV_PRN_SLOT_UNKNOWN == svNotify.gnssSvs[svNumber - 1].svId) {
+
+                if ((GNSS_SV_TYPE_GLONASS == svType) && (GLO_SV_PRN_SLOT_UNKNOWN == svId)) {
                     length = snprintf(pMarker, lengthRemaining, ",,%02d,%03d,",
                         (int)(0.5 + svNotify.gnssSvs[svNumber - 1].elevation), //float to int
                         (int)(0.5 + svNotify.gnssSvs[svNumber - 1].azimuth)); //float to int
                 } else {
                     length = snprintf(pMarker, lengthRemaining, ",%02d,%02d,%03d,",
-                        svNotify.gnssSvs[svNumber - 1].svId - svIdOffset,
+                                      svId - svIdOffset,
                         (int)(0.5 + svNotify.gnssSvs[svNumber - 1].elevation), //float to int
                         (int)(0.5 + svNotify.gnssSvs[svNumber - 1].azimuth)); //float to int
                 }
@@ -944,23 +1010,19 @@ static void loc_nmea_generate_DTM(const LocLla &ref_lla,
     char* pMarker = sentence;
     int lengthRemaining = bufSize;
     int length = 0;
-    int datum_type;
     char ref_datum[4] = {'W', '8', '4', '\0'};
     char local_datum[4] = {0};
     double lla_offset[3] = {0};
     char latHem, longHem;
     double latMins, longMins;
 
-
-
-    datum_type = loc_get_datum_type();
-    switch (datum_type) {
-        case LOC_GNSS_DATUM_WGS84:
+    switch (mNmeaDatumType) {
+        case GEODETIC_TYPE_WGS_84:
             local_datum[0] = 'W';
             local_datum[1] = '8';
             local_datum[2] = '4';
             break;
-        case LOC_GNSS_DATUM_PZ90:
+        case GEODETIC_TYPE_PZ_90:
             local_datum[0] = 'P';
             local_datum[1] = '9';
             local_datum[2] = '0';
@@ -1131,6 +1193,17 @@ static void loc_nmea_get_fix_quality(const UlpLocation & location,
             break;
         }
         // NOTE: Order of the check is important
+        if (locationExtended.flags & GPS_LOCATION_EXTENDED_HAS_POS_TECH_MASK) {
+            if ((LOC_POS_TECH_MASK_SENSORS == locationExtended.tech_mask) ||
+                (LOC_POS_TECH_MASK_PROPAGATED & locationExtended.tech_mask)) {
+                ggaGpsQuality[0] = '6'; // 6 means estimated (dead reckoning)
+                rmcModeIndicator = 'E'; // E means estimated (dead reckoning)
+                vtgModeIndicator = 'E'; // E means estimated (dead reckoning)
+                memset(gnsModeIndicator, 'E', 6); // E means estimated (dead reckoning)
+                break;
+            }
+        }
+        // NOTE: Order of the check is important
         if (locationExtended.flags & GPS_LOCATION_EXTENDED_HAS_NAV_SOLUTION_MASK) {
             if (LOC_NAV_MASK_PPP_CORRECTION & locationExtended.navSolutionMask) {
                 ggaGpsQuality[0] = '2';    // 2 means DGPS fix
@@ -1223,7 +1296,7 @@ static void loc_nmea_get_fix_quality(const UlpLocation & location,
         }
         // NOTE: Order of the check is important
         if (locationExtended.flags & GPS_LOCATION_EXTENDED_HAS_POS_TECH_MASK) {
-            if (LOC_POS_TECH_MASK_SATELLITE & locationExtended.tech_mask){
+            if (LOC_POS_TECH_MASK_SATELLITE & locationExtended.tech_mask) {
                 ggaGpsQuality[0] = '1'; // 1 means GPS
                 rmcModeIndicator = 'A'; // A means autonomous
                 vtgModeIndicator = 'A'; // A means autonomous
@@ -1239,13 +1312,6 @@ static void loc_nmea_get_fix_quality(const UlpLocation & location,
                     gnsModeIndicator[4] = 'A'; // A means autonomous
                 if (locationExtended.gnss_sv_used_ids.navic_sv_used_ids_mask ? 1 : 0)
                     gnsModeIndicator[5] = 'A'; // A means autonomous
-                break;
-            } else if ((LOC_POS_TECH_MASK_SENSORS & locationExtended.tech_mask) ||
-                       (LOC_POS_TECH_MASK_PROPAGATED & locationExtended.tech_mask)){
-                ggaGpsQuality[0] = '6'; // 6 means estimated (dead reckoning)
-                rmcModeIndicator = 'E'; // E means estimated (dead reckoning)
-                vtgModeIndicator = 'E'; // E means estimated (dead reckoning)
-                memset(gnsModeIndicator, 'E', 6); // E means estimated (dead reckoning)
                 break;
             }
         }
@@ -1367,7 +1433,7 @@ void loc_nmea_generate_pos(const UlpLocation &location,
     int utcMinutes = pTm->tm_min;
     int utcSeconds = pTm->tm_sec;
     int utcMSeconds = (location.gpsLocation.timestamp)%1000;
-    int datum_type = loc_get_datum_type();
+    double geoidalSeparation = 0.0;
     LocEcef ecef_w84;
     LocEcef ecef_p90;
     LocLla  lla_w84;
@@ -1409,18 +1475,51 @@ void loc_nmea_generate_pos(const UlpLocation &location,
         sv_cache_info.navic_used_mask =
                 locationExtended.gnss_sv_used_ids.navic_sv_used_ids_mask;
     }
-
-    if (generate_nmea) {
+    // Generate valid NMEA strings only when utc Time stamp is set
+    // Output empty nmea sentence if utctime is zero
+    if (generate_nmea && (0 != utcPosTimestamp)) {
         char talker[3] = {'G', 'P', '\0'};
         uint32_t svUsedCount = 0;
         uint32_t count = 0;
         loc_nmea_sv_meta sv_meta;
 
+        lla_w84.lat = location.gpsLocation.latitude / 180.0 * M_PI;
+        lla_w84.lon = location.gpsLocation.longitude / 180.0 * M_PI;
+        lla_w84.alt = location.gpsLocation.altitude;
+
+        convert_Lla_to_Ecef(lla_w84, ecef_w84);
+        convert_WGS84_to_PZ90(ecef_w84, ecef_p90);
+        convert_Ecef_to_Lla(ecef_p90, lla_p90);
+
+        ref_lla.lat = location.gpsLocation.latitude;
+        ref_lla.lon = location.gpsLocation.longitude;
+        ref_lla.alt = location.gpsLocation.altitude;
+
+        switch (mNmeaDatumType) {
+            case GEODETIC_TYPE_WGS_84:
+                local_lla.lat = location.gpsLocation.latitude;
+                local_lla.lon = location.gpsLocation.longitude;
+                local_lla.alt = location.gpsLocation.altitude;
+                break;
+            case GEODETIC_TYPE_PZ_90:
+                local_lla.lat = lla_p90.lat / M_PI * 180.0;
+                local_lla.lon = lla_p90.lon / M_PI * 180.0;
+                local_lla.alt = lla_p90.alt;
+                break;
+            default:
+                break;
+        }
+
+        if ((location.gpsLocation.flags & LOC_GPS_LOCATION_HAS_ALTITUDE) &&
+                (locationExtended.flags & GPS_LOCATION_EXTENDED_HAS_ALTITUDE_MEAN_SEA_LEVEL)) {
+            geoidalSeparation = ref_lla.alt - locationExtended.altitudeMeanSeaLevel;
+        }
+
         if (mEnabledNmeaTypes & NMEA_TYPE_GSA) {
             // -------------------
             // ---$GPGSA/$GNGSA---
             // -------------------
-            count = loc_nmea_generate_GSA(locationExtended, sentence, sizeof(sentence),
+            count = loc_nmea_generate_GSA(location, locationExtended, sentence, sizeof(sentence),
                             loc_nmea_sv_meta_init(sv_meta, sv_cache_info, GNSS_SV_TYPE_GPS,
                             GNSS_SIGNAL_GPS_L1CA, true), nmeaArraystr, isTagBlockGroupingEnabled);
             if (count > 0)
@@ -1433,7 +1532,7 @@ void loc_nmea_generate_pos(const UlpLocation &location,
             // -------------------
             // ---$GLGSA/$GNGSA---
             // -------------------
-            count = loc_nmea_generate_GSA(locationExtended, sentence, sizeof(sentence),
+            count = loc_nmea_generate_GSA(location, locationExtended, sentence, sizeof(sentence),
                             loc_nmea_sv_meta_init(sv_meta, sv_cache_info, GNSS_SV_TYPE_GLONASS,
                             GNSS_SIGNAL_GLONASS_G1, true), nmeaArraystr, isTagBlockGroupingEnabled);
             if (count > 0)
@@ -1446,7 +1545,7 @@ void loc_nmea_generate_pos(const UlpLocation &location,
             // -------------------
             // ---$GAGSA/$GNGSA---
             // -------------------
-            count = loc_nmea_generate_GSA(locationExtended, sentence, sizeof(sentence),
+            count = loc_nmea_generate_GSA(location, locationExtended, sentence, sizeof(sentence),
                             loc_nmea_sv_meta_init(sv_meta, sv_cache_info, GNSS_SV_TYPE_GALILEO,
                             GNSS_SIGNAL_GALILEO_E1, true), nmeaArraystr, isTagBlockGroupingEnabled);
             if (count > 0)
@@ -1459,7 +1558,7 @@ void loc_nmea_generate_pos(const UlpLocation &location,
             // ----------------------------
             // ---$GBGSA/$GNGSA (BEIDOU)---
             // ----------------------------
-            count = loc_nmea_generate_GSA(locationExtended, sentence, sizeof(sentence),
+            count = loc_nmea_generate_GSA(location, locationExtended, sentence, sizeof(sentence),
                             loc_nmea_sv_meta_init(sv_meta, sv_cache_info, GNSS_SV_TYPE_BEIDOU,
                             GNSS_SIGNAL_BEIDOU_B1I, true), nmeaArraystr, isTagBlockGroupingEnabled);
             if (count > 0)
@@ -1472,7 +1571,8 @@ void loc_nmea_generate_pos(const UlpLocation &location,
             // --------------------------
             // ---$GQGSA/$GNGSA (QZSS)---
             // --------------------------
-            count = loc_nmea_generate_GSA(locationExtended, sentence, sizeof(sentence),
+
+            count = loc_nmea_generate_GSA(location, locationExtended, sentence, sizeof(sentence),
                             loc_nmea_sv_meta_init(sv_meta, sv_cache_info, GNSS_SV_TYPE_QZSS,
                             GNSS_SIGNAL_QZSS_L1CA, true), nmeaArraystr, isTagBlockGroupingEnabled);
             if (count > 0)
@@ -1485,8 +1585,7 @@ void loc_nmea_generate_pos(const UlpLocation &location,
             // --------------------------
             // ---$GIGSA/$GNGSA (NavIC)---
             // --------------------------
-
-            count = loc_nmea_generate_GSA(locationExtended, sentence, sizeof(sentence),
+            count = loc_nmea_generate_GSA(location, locationExtended, sentence, sizeof(sentence),
                             loc_nmea_sv_meta_init(sv_meta, sv_cache_info, GNSS_SV_TYPE_NAVIC,
                             GNSS_SIGNAL_NAVIC_L5, true), nmeaArraystr, isTagBlockGroupingEnabled);
             if (count > 0)
@@ -1496,13 +1595,18 @@ void loc_nmea_generate_pos(const UlpLocation &location,
                 talker[1] = sv_meta.talker[1];
             }
 
-            // if svUsedCount is 0, it means we do not generate any GSA sentence yet.
-            // in this case, generate an empty GSA sentence
-            if (svUsedCount == 0) {
+            // if svUsedCount is 0 and teckMask include GNSS, it means we do not generate any GSA
+            // sentence yet. in this case, generate an empty GSA sentence
+            if (svUsedCount == 0 && (locationExtended.tech_mask & techMaskGnss)) {
                 strlcpy(sentence, "$GPGSA,A,1,,,,,,,,,,,,,,,,", sizeof(sentence));
                 length = loc_nmea_put_checksum(sentence, sizeof(sentence), false);
                 nmeaArraystr.push_back(sentence);
             }
+        } else {
+            loc_nmea_sv_meta_init(sv_meta, sv_cache_info, GNSS_SV_TYPE_GPS, GNSS_SIGNAL_GPS_L1CA,
+                    true);
+            talker[0] = sv_meta.talker[0];
+            talker[1] = sv_meta.talker[1];
         }
 
         char ggaGpsQuality[3] = {'0', '\0', '\0'};
@@ -1572,33 +1676,6 @@ void loc_nmea_generate_pos(const UlpLocation &location,
 
             length = loc_nmea_put_checksum(sentence, sizeof(sentence), false);
             nmeaArraystr.push_back(sentence);
-
-            lla_w84.lat = location.gpsLocation.latitude / 180.0 * M_PI;
-            lla_w84.lon = location.gpsLocation.longitude / 180.0 * M_PI;
-            lla_w84.alt = location.gpsLocation.altitude;
-
-            convert_Lla_to_Ecef(lla_w84, ecef_w84);
-            convert_WGS84_to_PZ90(ecef_w84, ecef_p90);
-            convert_Ecef_to_Lla(ecef_p90, lla_p90);
-
-            ref_lla.lat = location.gpsLocation.latitude;
-            ref_lla.lon = location.gpsLocation.longitude;
-            ref_lla.alt = location.gpsLocation.altitude;
-
-            switch (datum_type) {
-                case LOC_GNSS_DATUM_WGS84:
-                    local_lla.lat = location.gpsLocation.latitude;
-                    local_lla.lon = location.gpsLocation.longitude;
-                    local_lla.alt = location.gpsLocation.altitude;
-                    break;
-                case LOC_GNSS_DATUM_PZ90:
-                    local_lla.lat = lla_p90.lat / M_PI * 180.0;
-                    local_lla.lon = lla_p90.lon / M_PI * 180.0;
-                    local_lla.alt = lla_p90.alt;
-                    break;
-                default:
-                    break;
-            }
         }
 
         // -------------------
@@ -1619,7 +1696,8 @@ void loc_nmea_generate_pos(const UlpLocation &location,
                     (0 != sv_cache_info.glo_used_mask) ||
                     (0 != sv_cache_info.gal_used_mask) ||
                     (0 != sv_cache_info.qzss_used_mask) ||
-                    (0 != sv_cache_info.bds_used_mask));
+                    (0 != sv_cache_info.bds_used_mask) ||
+                    (location.gpsLocation.flags & LOC_GPS_LOCATION_HAS_LAT_LONG));
 
             if (validFix) {
                 length = snprintf(pMarker, lengthRemaining, "$%sRMC,%02d%02d%02d.%02d,A,",
@@ -1639,8 +1717,8 @@ void loc_nmea_generate_pos(const UlpLocation &location,
 
             if (location.gpsLocation.flags & LOC_GPS_LOCATION_HAS_LAT_LONG)
             {
-                double latitude = ref_lla.lat;
-                double longitude = ref_lla.lon;
+                double latitude = local_lla.lat;
+                double longitude = local_lla.lon;
                 char latHemisphere;
                 char lonHemisphere;
                 double latMinutes;
@@ -1794,8 +1872,8 @@ void loc_nmea_generate_pos(const UlpLocation &location,
 
             if (location.gpsLocation.flags & LOC_GPS_LOCATION_HAS_LAT_LONG)
             {
-                double latitude = ref_lla.lat;
-                double longitude = ref_lla.lon;
+                double latitude = local_lla.lat;
+                double longitude = local_lla.lon;
                 char latHemisphere;
                 char lonHemisphere;
                 double latMinutes;
@@ -1870,7 +1948,7 @@ void loc_nmea_generate_pos(const UlpLocation &location,
             if (locationExtended.flags & GPS_LOCATION_EXTENDED_HAS_ALTITUDE_MEAN_SEA_LEVEL)
             {
                 length = snprintf(pMarker, lengthRemaining, "%.1lf,",
-                                  locationExtended.altitudeMeanSeaLevel);
+                        local_lla.alt - geoidalSeparation);
             }
             else
             {
@@ -1888,8 +1966,7 @@ void loc_nmea_generate_pos(const UlpLocation &location,
             if ((location.gpsLocation.flags & LOC_GPS_LOCATION_HAS_ALTITUDE) &&
                 (locationExtended.flags & GPS_LOCATION_EXTENDED_HAS_ALTITUDE_MEAN_SEA_LEVEL))
             {
-                length = snprintf(pMarker, lengthRemaining, "%.1lf,",
-                                  ref_lla.alt - locationExtended.altitudeMeanSeaLevel);
+                length = snprintf(pMarker, lengthRemaining, "%.1lf,", geoidalSeparation);
             }
             else
             {
@@ -1961,8 +2038,8 @@ void loc_nmea_generate_pos(const UlpLocation &location,
 
             if (location.gpsLocation.flags & LOC_GPS_LOCATION_HAS_LAT_LONG)
             {
-                double latitude = ref_lla.lat;
-                double longitude = ref_lla.lon;
+                double latitude = local_lla.lat;
+                double longitude = local_lla.lon;
                 char latHemisphere;
                 char lonHemisphere;
                 double latMinutes;
@@ -2036,7 +2113,7 @@ void loc_nmea_generate_pos(const UlpLocation &location,
             if (locationExtended.flags & GPS_LOCATION_EXTENDED_HAS_ALTITUDE_MEAN_SEA_LEVEL)
             {
                 length = snprintf(pMarker, lengthRemaining, "%.1lf,M,",
-                                  locationExtended.altitudeMeanSeaLevel);
+                                  local_lla.alt - geoidalSeparation);
             }
             else
             {
@@ -2054,8 +2131,7 @@ void loc_nmea_generate_pos(const UlpLocation &location,
             if ((location.gpsLocation.flags & LOC_GPS_LOCATION_HAS_ALTITUDE) &&
                 (locationExtended.flags & GPS_LOCATION_EXTENDED_HAS_ALTITUDE_MEAN_SEA_LEVEL))
             {
-                length = snprintf(pMarker, lengthRemaining, "%.1lf,M,",
-                                  ref_lla.alt - locationExtended.altitudeMeanSeaLevel);
+                length = snprintf(pMarker, lengthRemaining, "%.1lf,M,", geoidalSeparation);
             }
             else
             {
@@ -2106,13 +2182,13 @@ void loc_nmea_generate_pos(const UlpLocation &location,
         nmeaArraystr.push_back(sentence_DTM);
         // ------$--RMC-------
         nmeaArraystr.push_back(sentence_RMC);
-        if(LOC_GNSS_DATUM_PZ90 == datum_type) {
+        if ((GEODETIC_TYPE_PZ_90 == mNmeaDatumType) && (mEnabledNmeaTypes & NMEA_TYPE_GNS)) {
             // ------$--DTM-------
             nmeaArraystr.push_back(sentence_DTM);
         }
         // ------$--GNS-------
         nmeaArraystr.push_back(sentence_GNS);
-        if(LOC_GNSS_DATUM_PZ90 == datum_type) {
+        if (GEODETIC_TYPE_PZ_90 == mNmeaDatumType && (mEnabledNmeaTypes & NMEA_TYPE_GGA)) {
             // ------$--DTM-------
             nmeaArraystr.push_back(sentence_DTM);
         }
@@ -2123,7 +2199,7 @@ void loc_nmea_generate_pos(const UlpLocation &location,
     //Send blank NMEA reports for non-final fixes
     else {
         if (mEnabledNmeaTypes & NMEA_TYPE_GSA) {
-            strlcpy(sentence, "$GPGSA,A,1,,,,,,,,,,,,,,,,", sizeof(sentence)); 
+            strlcpy(sentence, "$GPGSA,A,1,,,,,,,,,,,,,,,,", sizeof(sentence));
             length = loc_nmea_put_checksum(sentence, sizeof(sentence), false);
             nmeaArraystr.push_back(sentence);
         }
@@ -2250,6 +2326,9 @@ void loc_nmea_generate_sv(const GnssSvNotification &svNotify,
             if ((GNSS_SIGNAL_BEIDOU_B2AI == svNotify.gnssSvs[svOffset].gnssSignalTypeMask) ||
                    (GNSS_SIGNAL_BEIDOU_B2AQ == svNotify.gnssSvs[svOffset].gnssSignalTypeMask)) {
                 sv_cache_info.bds_b2_count++;
+            } else if ((GNSS_SIGNAL_BEIDOU_B2BI == svNotify.gnssSvs[svOffset].gnssSignalTypeMask) ||
+                      (GNSS_SIGNAL_BEIDOU_B2BQ == svNotify.gnssSvs[svOffset].gnssSignalTypeMask)) {
+                sv_cache_info.bds_b2b_count++;
             } else if (GNSS_SIGNAL_BEIDOU_B1C == svNotify.gnssSvs[svOffset].gnssSignalTypeMask) {
                 sv_cache_info.bds_b1c_count++;
             } else {
@@ -2261,7 +2340,13 @@ void loc_nmea_generate_sv(const GnssSvNotification &svNotify,
         else if (GNSS_SV_TYPE_NAVIC == svNotify.gnssSvs[svOffset].type)
         {
             // GNSS_SIGNAL_NAVIC_L5 is the only signal type for NAVIC
-            sv_cache_info.navic_l5_count++;
+            if (GNSS_SIGNAL_NAVIC_L5 == svNotify.gnssSvs[svOffset].gnssSignalTypeMask) {
+                sv_cache_info.navic_l5_count++;
+            } else if (GNSS_SIGNAL_NAVIC_L1 == svNotify.gnssSvs[svOffset].gnssSignalTypeMask) {
+                sv_cache_info.navic_l1_count++;
+            } else {
+                //No valid signal type
+            }
         }
     }
 
@@ -2369,16 +2454,28 @@ void loc_nmea_generate_sv(const GnssSvNotification &svNotify,
         loc_nmea_generate_GSV(svNotify, sentence, sizeof(sentence),
                 loc_nmea_sv_meta_init(sv_meta, sv_cache_info, GNSS_SV_TYPE_BEIDOU,
                 GNSS_SIGNAL_BEIDOU_B2AI, false), nmeaArraystr);
+        // -----------------------------
+        // ------$GBGSV (BEIDOU:B2BI)---
+        // -----------------------------
+        loc_nmea_generate_GSV(svNotify, sentence, sizeof(sentence),
+                loc_nmea_sv_meta_init(sv_meta, sv_cache_info, GNSS_SV_TYPE_BEIDOU,
+                GNSS_SIGNAL_BEIDOU_B2BI, false), nmeaArraystr);
     }
 
-
-    // -----------------------------
-    // ------$GIGSV (NAVIC:L5)------
-    // -----------------------------
     if (mEnabledNmeaTypes & NMEA_TYPE_GIGSV) {
+
+        // -----------------------------
+        // ------$GIGSV (NAVIC:L5)------
+        // -----------------------------
         loc_nmea_generate_GSV(svNotify, sentence, sizeof(sentence),
                 loc_nmea_sv_meta_init(sv_meta, sv_cache_info, GNSS_SV_TYPE_NAVIC,
                 GNSS_SIGNAL_NAVIC_L5, false), nmeaArraystr);
+        // -----------------------------
+        // ------$GIGSV (NAVIC:L1)------
+        // -----------------------------
+        loc_nmea_generate_GSV(svNotify, sentence, sizeof(sentence),
+                loc_nmea_sv_meta_init(sv_meta, sv_cache_info, GNSS_SV_TYPE_NAVIC,
+                GNSS_SIGNAL_NAVIC_L1, false), nmeaArraystr);
     }
 
     EXIT_LOG(%d, 0);
@@ -2400,6 +2497,9 @@ SIDE EFFECTS
    N/A
 
 ===========================================================================*/
-void loc_nmea_config_output_types(GnssNmeaTypesMask enabledNmeaTypes) {
+void loc_nmea_config_output_types(GnssNmeaTypesMask enabledNmeaTypes,
+                                  GnssGeodeticDatumType nmeaDatumType) {
+    LOC_LOGd("nmea types 0x%x, datum type %d", enabledNmeaTypes, nmeaDatumType);
     mEnabledNmeaTypes = enabledNmeaTypes;
+    mNmeaDatumType = nmeaDatumType;
 }

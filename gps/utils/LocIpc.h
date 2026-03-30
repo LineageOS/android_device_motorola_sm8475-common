@@ -27,6 +27,42 @@
  *
  */
 
+/*
+Changes from Qualcomm Innovation Center are provided under the following license:
+
+Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted (subject to the limitations in the
+disclaimer below) provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 #ifndef __LOC_IPC__
 #define __LOC_IPC__
 
@@ -39,12 +75,7 @@
 #include <LocThread.h>
 
 using namespace std;
-#ifdef NO_UNORDERED_SET_OR_MAP
-    #include <set>
-    #define unordered_set set
-#else
-    #include <unordered_set>
-#endif
+#include <unordered_set>
 
 namespace loc_util {
 
@@ -86,8 +117,8 @@ public:
         mClientsToWatch.emplace(nodeId);
     }
     virtual void onServiceStatusChange(int sericeId, int instanceId, ServiceStatus status,
-                                       const LocIpcSender& sender) = 0;
-    inline virtual void onClientGone(int nodeId __unused, int portId __unused) {}
+                                       uint32_t nodeId, uint32_t port) = 0;
+    inline virtual void onClientGone(int nodeId, int portId) {}
     inline const unordered_set<int>& getServicesToWatch() { return mServicesToWatch; }
 };
 
@@ -174,10 +205,11 @@ public:
     inline bool sendData(const uint8_t data[], uint32_t length, int32_t msgId) const {
         return isSendable() && (send(data, length, msgId) > 0);
     }
-    virtual unique_ptr<LocIpcRecver> getRecver(const shared_ptr<ILocIpcListener>& listener __unused) {
+    virtual unique_ptr<LocIpcRecver> getRecver(const shared_ptr<ILocIpcListener>& listener) {
         return nullptr;
     }
-    inline virtual bool copyDestAddrFrom(const LocIpcSender& otherSender __unused) { return true; }
+    // Function used to update dest node id and port id for QRTR sender socket
+    inline virtual bool updateDestAddr(uint32_t nodeId, uint32_t portId) { return true; }
 };
 
 class LocIpcRecver {
@@ -203,7 +235,11 @@ public:
 
 class Sock {
     static const char MSG_ABORT[];
-    static const char LOC_IPC_HEAD[];
+    static bool sRandSeeded;
+    // in the format of (a little massage needed):
+    //   "$MSG_CONCAT_HDR$<unique ID-16bytes>$<msgsize-8bytes>$"
+    //   no null ending char needed.
+    char LOC_IPC_HEAD[42];
     const uint32_t mMaxTxSize;
     ssize_t sendto(const void *buf, size_t len, int flags, const struct sockaddr *destAddr,
                    socklen_t addrlen) const;
@@ -211,7 +247,10 @@ class Sock {
                      int sid, int flags, struct sockaddr *srcAddr, socklen_t *addrlen) const;
 public:
     int mSid;
-    inline Sock(int sid, const uint32_t maxTxSize = 8192) : mMaxTxSize(maxTxSize), mSid(sid) {}
+    //QRTR supports maximum of 16KB packet length over MHI interface.
+    //Set it to 15K to ensure that the total packet size
+    //(including the header added at the underlying layer) does not exceed 16K
+    Sock(int sid, const uint32_t maxTxSize = 15360);
     inline ~Sock() { close(); }
     inline bool isValid() const { return -1 != mSid; }
     ssize_t send(const void *buf, uint32_t len, int flags, const struct sockaddr *destAddr,

@@ -71,5 +71,5 @@ libgps_utils_la_LIBADD = $(CUTILS_LIBS) -ldl
 lib_LTLIBRARIES = libgps_utils.la
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = gps-utils.pc
+pkgconfig_DATA = qcom-gps-utils.pc
 EXTRA_DIST = $(pkgconfig_DATA)

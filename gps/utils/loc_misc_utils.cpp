@@ -26,6 +26,43 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+
+/*
+Changes from Qualcomm Innovation Center are provided under the following license:
+
+Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted (subject to the limitations in the
+disclaimer below) provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 #define LOG_NDEBUG 0
 #define LOG_TAG "LocSvc_misc_utils"
 #include <stdio.h>
@@ -40,10 +77,15 @@
 #include <inttypes.h>
 #include <sys/stat.h>
 
+#include <sys/types.h>
+#include <pwd.h>
+
 #ifndef MSEC_IN_ONE_SEC
 #define MSEC_IN_ONE_SEC 1000ULL
 #endif
 #define GET_MSEC_FROM_TS(ts) ((ts.tv_sec * MSEC_IN_ONE_SEC) + (ts.tv_nsec + 500000)/1000000)
+
+#define WAKELOCK_STR "gnss_hal"
 
 int loc_util_split_string(char *raw_string, char **split_strings_ptr,
                           int max_num_substrings, char delimiter)
@@ -90,7 +132,7 @@ err:
 void loc_util_trim_space(char *org_string)
 {
     char *scan_ptr, *write_ptr;
-    char *first_nonspace = NULL, *last_nonspace = NULL;
+    char *first_nonspace = NULL, *last_nonspace = org_string;
 
     if(org_string == NULL) {
         LOC_LOGE("%s:%d]: NULL parameter", __func__, __LINE__);
@@ -352,7 +394,7 @@ void loc_convert_velocity_gnss_to_vrp(float enuVelocity[3], float rollPitchYaw[3
 }
 
 // Wait for the system script(rootdir/etc/init.qcom.rc) to create the folder
-void locUtilWaitForDir(const char* dirName) {
+void locUtilWaitForDir(const char* dirName, const char* uidName) {
     struct stat buf_stat;
     while (1) {
         LOC_LOGv("waiting for %s...", dirName);
@@ -364,4 +406,77 @@ void locUtilWaitForDir(const char* dirName) {
         usleep(100000);
     }
     LOC_LOGv("done");
+
+    if (nullptr != uidName) {
+        struct stat statbuf;
+        struct passwd *pwd;
+        int counter=0;
+
+        do {
+            if (-1 != lstat(dirName, &statbuf)) {
+                if ((pwd = getpwuid(statbuf.st_uid)) != NULL) {
+                    LOC_LOGd("dir group is %s", pwd->pw_name);
+                    if (strcmp(pwd->pw_name, uidName) == 0) {
+                        break;
+                    }
+                }
+            }
+            // check every 100 millsecond
+            usleep (100000);
+            counter++;
+        } while (counter < 10);
+        LOC_LOGv("done check for uidName ctr:%d", counter);
+    }
+}
+
+int32_t locAcquireWakeLock() {
+    LOC_LOGd("enter");
+    int32_t ret = 0;
+    const char * lockFile = "/sys/power/wake_lock";
+    int lockFd = -1;
+
+    errno = 0;
+    lockFd = open(lockFile, O_WRONLY | O_APPEND);
+
+    if (lockFd < 0) {
+        LOC_LOGe("Unable to write to wake lock file: %s", strerror(errno));
+        ret = -1;
+    } else {
+        ret = write(lockFd, WAKELOCK_STR, strlen(WAKELOCK_STR));
+        if (ret < 0) {
+            LOC_LOGe("Unable to write to wake lock file: %s", strerror(errno));
+            ret = -1;
+        }
+    }
+
+    if (lockFd >= 0) {
+        close(lockFd);
+    }
+    return ret;
+}
+
+int32_t locReleaseWakeLock() {
+    LOC_LOGd("enter");
+    int32_t ret = 0;
+    const char * unLockFile = "/sys/power/wake_unlock";
+    int unLockFd = -1;
+
+    errno = 0;
+    unLockFd = open(unLockFile, O_WRONLY | O_APPEND);
+
+    if (unLockFd < 0) {
+        LOC_LOGe("Unable to write to wake unlock file: %s", strerror(errno));
+        ret = -1;
+    } else {
+        ret = write(unLockFd, WAKELOCK_STR, strlen(WAKELOCK_STR));
+        if (ret < 0) {
+            LOC_LOGe("Unable to write to wake unlock file: %s", strerror(errno));
+            ret = -1;
+        }
+    }
+
+    if (unLockFd >= 0) {
+        close(unLockFd);
+    }
+    return ret;
 }

@@ -26,10 +26,11 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+
 /*
 Changes from Qualcomm Innovation Center are provided under the following license:
 
-Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted (subject to the limitations in the
@@ -61,6 +62,7 @@ IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+
 #define LOG_TAG "LocSvc_GeofenceAdapter"
 
 #include <GeofenceAdapter.h>
@@ -159,24 +161,30 @@ GeofenceAdapter::handleEngineUpEvent()
 {
     struct MsgSSREvent : public LocMsg {
         GeofenceAdapter& mAdapter;
-        inline MsgSSREvent(GeofenceAdapter& adapter) :
+        LocApiBase& mApi;
+        inline MsgSSREvent(GeofenceAdapter& adapter, LocApiBase& api) :
             LocMsg(),
-            mAdapter(adapter) {}
+            mAdapter(adapter),
+            mApi(api) {}
         virtual void proc() const {
             mAdapter.setEngineCapabilitiesKnown(true);
             mAdapter.broadcastCapabilities(mAdapter.getCapabilities());
-            if ((POWER_STATE_SUSPEND != mAdapter.mSystemPowerState) &&
-                 POWER_STATE_SHUTDOWN != mAdapter.mSystemPowerState) {
-                mAdapter.restartGeofences();
+            if (ENGINE_LOCK_STATE_DISABLED != mApi.getEngineLockState()) {
+                for (auto msg: mAdapter.mPendingMsgs) {
+                    mAdapter.sendMsg(msg);
+                }
+                mAdapter.mPendingMsgs.clear();
+
+                if ((POWER_STATE_SUSPEND != mAdapter.mSystemPowerState) &&
+                    (POWER_STATE_DEEP_SLEEP_ENTRY != mAdapter.mSystemPowerState) &&
+                    POWER_STATE_SHUTDOWN != mAdapter.mSystemPowerState) {
+                    mAdapter.restartGeofences();
+                }
             }
-            for (auto msg: mAdapter.mPendingMsgs) {
-                mAdapter.sendMsg(msg);
-            }
-            mAdapter.mPendingMsgs.clear();
         }
     };
 
-    sendMsg(new MsgSSREvent(*this));
+    sendMsg(new MsgSSREvent(*this, *mLocApi));
 }
 
 void
@@ -209,7 +217,7 @@ GeofenceAdapter::restartGeofences()
             if (LOCATION_ERROR_SUCCESS == err) {
                 if (true == object.paused) {
                     mLocApi->pauseGeofence(data.hwId, object.key.id,
-                            new LocApiResponse(*getContext(), [] (LocationError err __unused) {}));
+                            new LocApiResponse(*getContext(), [] (LocationError err ) {}));
                 }
                 saveGeofenceItem(object.key.client, object.key.id, data.hwId, options, info);
             }
@@ -273,7 +281,7 @@ GeofenceAdapter::addGeofencesCommand(LocationAPI* client, size_t count, Geofence
             mCount(count),
             mIds(ids),
             mOptions(options),
-            mInfos(infos) {}
+            mInfos(infos){}
         inline virtual void proc() const {
             LocationError* errs = new LocationError[mCount];
             if (nullptr == errs) {
@@ -287,13 +295,14 @@ GeofenceAdapter::addGeofencesCommand(LocationAPI* client, size_t count, Geofence
                     mApi.addToCallQueue(new LocApiResponse(*mAdapter.getContext(),
                             [&mAdapter = mAdapter, mCount = mCount, mClient = mClient,
                             mOptions = mOptions, mInfos = mInfos, mIds = mIds, &mApi = mApi,
-                            errs, i] (LocationError err __unused) {
+                            errs, i] (LocationError err ) {
                         mApi.addGeofence(mIds[i], mOptions[i], mInfos[i],
                         new LocApiResponseData<LocApiGeofenceData>(*mAdapter.getContext(),
                         [&mAdapter = mAdapter, mOptions = mOptions, mClient = mClient,
-                        mCount = mCount, mIds = mIds, mInfos = mInfos, errs, i]
+                        mCount = mCount, mIds = mIds, mInfos = mInfos, errs, i, &mApi = mApi]
                         (LocationError err, LocApiGeofenceData data) {
-                            if (LOCATION_ERROR_SUCCESS == err) {
+                            if (ENGINE_LOCK_STATE_DISABLED == mApi.getEngineLockState() ||
+                                LOCATION_ERROR_SUCCESS == err) {
                                 mAdapter.saveGeofenceItem(mClient,
                                 mIds[i],
                                 data.hwId,
@@ -388,15 +397,16 @@ GeofenceAdapter::removeGeofencesCommand(LocationAPI* client, size_t count, uint3
             for (size_t i=0; i < mCount; ++i) {
                 mApi.addToCallQueue(new LocApiResponse(*mAdapter.getContext(),
                         [&mAdapter = mAdapter, mCount = mCount, mClient = mClient, mIds = mIds,
-                        &mApi = mApi, errs, i] (LocationError err __unused) {
+                        &mApi = mApi, errs, i] (LocationError err ) {
                     uint32_t hwId = 0;
                     errs[i] = mAdapter.getHwIdFromClient(mClient, mIds[i], hwId);
                     if (LOCATION_ERROR_SUCCESS == errs[i]) {
                         mApi.removeGeofence(hwId, mIds[i],
                         new LocApiResponse(*mAdapter.getContext(),
                         [&mAdapter = mAdapter, mCount = mCount, mClient = mClient, mIds = mIds,
-                        hwId, errs, i] (LocationError err ) {
-                            if (LOCATION_ERROR_SUCCESS == err) {
+                        hwId, errs, i, &mApi = mApi] (LocationError err ) {
+                            if (ENGINE_LOCK_STATE_DISABLED == mApi.getEngineLockState() ||
+                                LOCATION_ERROR_SUCCESS == err) {
                                 mAdapter.removeGeofenceItem(hwId);
                             }
                             errs[i] = err;
@@ -464,7 +474,7 @@ GeofenceAdapter::pauseGeofencesCommand(LocationAPI* client, size_t count, uint32
             for (size_t i=0; i < mCount; ++i) {
                 mApi.addToCallQueue(new LocApiResponse(*mAdapter.getContext(),
                         [&mAdapter = mAdapter, mCount = mCount, mClient = mClient, mIds = mIds,
-                        &mApi = mApi, errs, i] (LocationError err __unused) {
+                        &mApi = mApi, errs, i] (LocationError err ) {
                     uint32_t hwId = 0;
                     errs[i] = mAdapter.getHwIdFromClient(mClient, mIds[i], hwId);
                     if (LOCATION_ERROR_SUCCESS == errs[i]) {
@@ -539,7 +549,7 @@ GeofenceAdapter::resumeGeofencesCommand(LocationAPI* client, size_t count, uint3
             for (size_t i=0; i < mCount; ++i) {
                 mApi.addToCallQueue(new LocApiResponse(*mAdapter.getContext(),
                         [&mAdapter = mAdapter, mCount = mCount, mClient = mClient, mIds = mIds,
-                        &mApi = mApi, errs, i] (LocationError err __unused) {
+                        &mApi = mApi, errs, i] (LocationError err ) {
                     uint32_t hwId = 0;
                     errs[i] = mAdapter.getHwIdFromClient(mClient, mIds[i], hwId);
                     if (LOCATION_ERROR_SUCCESS == errs[i]) {
@@ -622,16 +632,17 @@ GeofenceAdapter::modifyGeofencesCommand(LocationAPI* client, size_t count, uint3
                 } else {
                     mApi.addToCallQueue(new LocApiResponse(*mAdapter.getContext(),
                             [&mAdapter = mAdapter, mCount = mCount, mClient = mClient, mIds = mIds,
-                            &mApi = mApi, mOptions = mOptions, errs, i] (LocationError err __unused) {
+                            &mApi = mApi, mOptions = mOptions, errs, i] (LocationError err ) {
                         uint32_t hwId = 0;
                         errs[i] = mAdapter.getHwIdFromClient(mClient, mIds[i], hwId);
                         if (LOCATION_ERROR_SUCCESS == errs[i]) {
                             mApi.modifyGeofence(hwId, mIds[i], mOptions[i],
                                     new LocApiResponse(*mAdapter.getContext(),
                                     [&mAdapter = mAdapter, mCount = mCount, mClient = mClient,
-                                    mIds = mIds, mOptions = mOptions, hwId, errs, i]
+                                    mIds = mIds, mOptions = mOptions, hwId, errs, i, &mApi = mApi]
                                     (LocationError err ) {
-                                if (LOCATION_ERROR_SUCCESS == err) {
+                                if (ENGINE_LOCK_STATE_DISABLED == mApi.getEngineLockState() ||
+                                    LOCATION_ERROR_SUCCESS == err) {
                                     errs[i] = err;
 
                                     mAdapter.modifyGeofenceItem(hwId, mOptions[i]);
@@ -952,10 +963,12 @@ GeofenceAdapter::updateSystemPowerState(PowerStateType systemPowerState)
 
             case POWER_STATE_SUSPEND:
             case POWER_STATE_SHUTDOWN:
+            case POWER_STATE_DEEP_SLEEP_ENTRY:
                 pauseOrResumeGeofences(false /*pause*/);
                 LOC_LOGd("Pause all geoFences -- powerState: %d", systemPowerState);
                 break;
             case POWER_STATE_RESUME:
+            case POWER_STATE_DEEP_SLEEP_EXIT:
                 pauseOrResumeGeofences(true /*resume*/);
                 LOC_LOGd("Resume all geoFences -- powerState: %d", systemPowerState);
                 break;

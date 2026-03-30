@@ -109,7 +109,6 @@ PRODUCT_PACKAGES += \
 
 # GPS
 PRODUCT_PACKAGES += \
-    android.hardware.gnss@2.1-impl-qti \
     android.hardware.gnss-aidl-impl-qti \
     android.hardware.gnss-aidl-service-qti \
     gnss@2.0-base.policy \

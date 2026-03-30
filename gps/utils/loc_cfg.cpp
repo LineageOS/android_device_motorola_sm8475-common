@@ -26,6 +26,11 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
 
 #define LOG_NDEBUG 0
 #define LOG_TAG "LocSvc_utils_cfg"
@@ -57,17 +62,17 @@
 /* Parameter data */
 static uint32_t DEBUG_LEVEL = UINT32_MAX;
 static uint32_t TIMESTAMP = 0;
-static uint32_t DATUM_TYPE = 0;
 static bool sVendorEnhanced = true;
 static uint32_t sLogBufferEnabled = 0;
+static uint32_t sQxdmLogEnabled = 0;
 
 /* Parameter spec table */
 static const loc_param_s_type loc_param_table[] =
 {
     {"DEBUG_LEVEL",             &DEBUG_LEVEL,        NULL, 'n'},
     {"TIMESTAMP",               &TIMESTAMP,          NULL, 'n'},
-    {"DATUM_TYPE",              &DATUM_TYPE,         NULL, 'n'},
     {"LOG_BUFFER_ENABLED",      &sLogBufferEnabled,  NULL, 'n'},
+    {"QXDM_LOG",                &sQxdmLogEnabled,    NULL, 'n'},
 };
 static const int loc_param_num = sizeof(loc_param_table) / sizeof(loc_param_s_type);
 
@@ -79,11 +84,12 @@ typedef struct loc_param_v_type
     double param_double_value;
 }loc_param_v_type;
 
+typedef bool(*LogGnssF3Init)(void);
+
 // Reference below arrays wherever needed to avoid duplicating
 // same conf path string over and again in location code.
 const char LOC_PATH_GPS_CONF[] = LOC_PATH_GPS_CONF_STR;
 const char LOC_PATH_IZAT_CONF[] = LOC_PATH_IZAT_CONF_STR;
-const char LOC_PATH_BATCHING_CONF[] = LOC_PATH_BATCHING_CONF_STR;
 const char LOC_PATH_LOWI_CONF[] = LOC_PATH_LOWI_CONF_STR;
 const char LOC_PATH_SAP_CONF[] = LOC_PATH_SAP_CONF_STR;
 const char LOC_PATH_APDR_CONF[] = LOC_PATH_APDR_CONF_STR;
@@ -105,29 +111,6 @@ bool isVendorEnhanced() {
 }
 void setVendorEnhanced(bool vendorEnhanced) {
     sVendorEnhanced = vendorEnhanced;
-}
-
-/*===========================================================================
-FUNCTION loc_get_datum_type
-
-DESCRIPTION
-   get datum type
-
-PARAMETERS:
-   N/A
-
-DEPENDENCIES
-   N/A
-
-RETURN VALUE
-   DATUM TYPE
-
-SIDE EFFECTS
-   N/A
-===========================================================================*/
-int loc_get_datum_type()
-{
-    return DATUM_TYPE;
 }
 
 /*===========================================================================
@@ -242,7 +225,7 @@ SIDE EFFECTS
    N/A
 ===========================================================================*/
 int loc_fill_conf_item(char* input_buf,
-                       const loc_param_s_type* config_table,
+                       const loc_param_s_type config_table[],
                        uint32_t table_length, uint16_t string_len = LOC_MAX_PARAM_STRING)
 {
     int ret = 0;
@@ -320,7 +303,7 @@ RETURN VALUE
 SIDE EFFECTS
    N/A
 ===========================================================================*/
-int loc_read_conf_r_long(FILE *conf_fp, const loc_param_s_type* config_table,
+int loc_read_conf_r_long(FILE *conf_fp, const loc_param_s_type config_table[],
                          uint32_t table_length, uint16_t string_len)
 {
     int ret=0;
@@ -384,7 +367,7 @@ SIDE EFFECTS
    N/A
 ===========================================================================*/
 int loc_update_conf_long(const char* conf_data, int32_t length,
-                         const loc_param_s_type* config_table,
+                         const loc_param_s_type config_table[],
                          uint32_t table_length, uint16_t string_len)
 {
     int ret = -1;
@@ -441,12 +424,12 @@ RETURN VALUE
 SIDE EFFECTS
    N/A
 ===========================================================================*/
-void loc_read_conf_long(const char* conf_file_name, const loc_param_s_type* config_table,
+void loc_read_conf_long(const char* conf_file_name, const loc_param_s_type config_table[],
                         uint32_t table_length, uint16_t string_len)
 {
     FILE *conf_fp = NULL;
+    QxdmF3 qxdmF3 = NULL;
 
-    log_buffer_init(false);
     if ((conf_fp = fopen(conf_file_name, "r")) != NULL)
     {
         LOC_LOGd("using %s", conf_file_name);
@@ -457,8 +440,22 @@ void loc_read_conf_long(const char* conf_file_name, const loc_param_s_type* conf
         if (DEBUG_LEVEL == UINT32_MAX) {
             /* Read default config entries*/
             loc_read_conf_r(conf_fp, loc_param_table, loc_param_num);
+            if (sQxdmLogEnabled) {
+                LogGnssF3Init logGnssF3Init;
+                const char* libname = "liblocdiagiface.so";
+                void* libHandle = nullptr;
+                logGnssF3Init = (LogGnssF3Init)dlGetSymFromLib(libHandle, libname, "LogGnssF3Init");
+                qxdmF3 = (QxdmF3)dlGetSymFromLib(libHandle, libname, "LogGnssF3");
+                if (nullptr == logGnssF3Init || nullptr == qxdmF3) {
+                    ALOGE("DiagIface logGnssF3Init or qxdmF3 is nullptr !!\n");
+                } else {
+                    if (true != logGnssF3Init()) {
+                        ALOGE("logF3Init failed !!\n");
+                    }
+                }
+            }
             /* Initialize logging mechanism with parsed data */
-            loc_logger_init(DEBUG_LEVEL, TIMESTAMP);
+            loc_logger_init(DEBUG_LEVEL, TIMESTAMP, qxdmF3);
             log_buffer_init(sLogBufferEnabled);
             log_tag_level_map_init();
         }
@@ -491,8 +488,6 @@ void loc_read_conf_long(const char* conf_file_name, const loc_param_s_type* conf
 #define LOC_FEATURE_MASK_GTP_WIFI_PREMIUM          0X02
 #define LOC_FEATURE_MASK_GTP_CELL_BASIC            0X04
 #define LOC_FEATURE_MASK_GTP_CELL_PREMIUM          0X08
-#define LOC_FEATURE_MASK_SAP_BASIC                 0x40
-#define LOC_FEATURE_MASK_SAP_PREMIUM               0X80
 #define LOC_FEATURE_MASK_GTP_WAA_BASIC             0X100
 #define LOC_FEATURE_MASK_GTP_MODEM_CELL_BASIC      0X400
 #define LOC_FEATURE_MASK_ODCPI                     0x1000
@@ -514,14 +509,13 @@ typedef struct {
     unsigned int sglte_target;
     char feature_gtp_mode[LOC_MAX_PARAM_STRING];
     char feature_gtp_waa[LOC_MAX_PARAM_STRING];
-    char feature_sap[LOC_MAX_PARAM_STRING];
     char feature_odcpi[LOC_MAX_PARAM_STRING];
     char feature_free_wifi_scan_inject[LOC_MAX_PARAM_STRING];
     char feature_supl_wifi[LOC_MAX_PARAM_STRING];
     char feature_wifi_supplicant_info[LOC_MAX_PARAM_STRING];
     char auto_platform[LOC_MAX_PARAM_STRING];
     unsigned int vendor_enhanced_process;
-    unsigned int launch_on_optin;
+    unsigned int launch_trigger_mask;
 } loc_launcher_conf;
 
 /* process configuration parameters */
@@ -536,7 +530,6 @@ static const loc_param_s_type gps_conf_parameter_table[] = {
 static const loc_param_s_type loc_feature_conf_table[] = {
     {"GTP_MODE",              &conf.feature_gtp_mode,               NULL, 's'},
     {"GTP_WAA",               &conf.feature_gtp_waa,                NULL, 's'},
-    {"SAP",                   &conf.feature_sap,                    NULL, 's'},
     {"ODCPI",                 &conf.feature_odcpi,                  NULL, 's'},
     {"FREE_WIFI_SCAN_INJECT", &conf.feature_free_wifi_scan_inject,  NULL, 's'},
     {"SUPL_WIFI",             &conf.feature_supl_wifi,              NULL, 's'},
@@ -557,7 +550,7 @@ static const loc_param_s_type loc_process_conf_parameter_table[] = {
     {"LOW_RAM_TARGETS",            &conf.low_ram_targets,          NULL, 's'},
     {"HARDWARE_TYPE",              &conf.auto_platform,            NULL, 's'},
     {"VENDOR_ENHANCED_PROCESS",    &conf.vendor_enhanced_process,  NULL, 'n'},
-    {"LAUNCH_ON_OPTIN",            &conf.launch_on_optin,          NULL, 'n'},
+    {"LAUNCH_TRIGGER_MASK",       &conf.launch_trigger_mask,     NULL, 'n'},
 };
 
 /*===========================================================================
@@ -604,7 +597,7 @@ int loc_read_process_conf(const char* conf_file_name, uint32_t * process_count_p
     char arg_gtp_waa[LOC_PROCESS_MAX_ARG_STR_LENGTH] = "--";
     char arg_gtp_modem_cell[LOC_PROCESS_MAX_ARG_STR_LENGTH] = "--";
     char arg_gtp_wifi[LOC_PROCESS_MAX_ARG_STR_LENGTH] = "--";
-    char arg_sap[LOC_PROCESS_MAX_ARG_STR_LENGTH] = "--";
+    char arg_launch_trigger_mask[LOC_PROCESS_MAX_ARG_STR_LENGTH] = "--";
     char arg_disabled[LOC_PROCESS_MAX_ARG_STR_LENGTH] = LOC_FEATURE_MODE_DISABLED;
     char arg_basic[LOC_PROCESS_MAX_ARG_STR_LENGTH] = LOC_FEATURE_MODE_BASIC;
     char arg_premium[LOC_PROCESS_MAX_ARG_STR_LENGTH] = LOC_FEATURE_MODE_PREMIUM;
@@ -620,7 +613,8 @@ int loc_read_process_conf(const char* conf_file_name, uint32_t * process_count_p
     strlcat(arg_gtp_waa, LOC_FEATURE_GTP_WAA, LOC_PROCESS_MAX_ARG_STR_LENGTH-3);
     strlcat(arg_gtp_modem_cell, LOC_FEATURE_GTP_MODEM_CELL, LOC_PROCESS_MAX_ARG_STR_LENGTH-3);
     strlcat(arg_gtp_wifi, LOC_FEATURE_GTP_WIFI, LOC_PROCESS_MAX_ARG_STR_LENGTH-3);
-    strlcat(arg_sap, LOC_FEATURE_SAP, LOC_PROCESS_MAX_ARG_STR_LENGTH-3);
+    strlcat(arg_launch_trigger_mask, LOC_FEATURE_LAUNCH_TRIGGER_MASK,
+            LOC_PROCESS_MAX_ARG_STR_LENGTH-3);
 
     //Get platform name from ro.board.platform property
     loc_get_platform_name(platform_name, sizeof(platform_name));
@@ -669,35 +663,6 @@ int loc_read_process_conf(const char* conf_file_name, uint32_t * process_count_p
       LOC_LOGE("%s:%d]: Unrecognized value for GTP WAA Mode."\
                " Setting GTP WAA to default mode: DISABLED", __func__, __LINE__);
     }
-
-    //Set service mask for SAP
-    if(strcmp(conf.feature_sap, "PREMIUM") == 0 ||
-       strcmp(conf.feature_sap, "PREMIUM_ENV_AIDING") == 0) {
-        LOC_LOGD("%s:%d]: Setting SAP to mode: PREMIUM", __func__, __LINE__);
-        loc_service_mask |= LOC_FEATURE_MASK_SAP_PREMIUM;
-    }
-    else if (strcmp(conf.feature_sap, "BASIC") == 0) {
-        LOC_LOGD("%s:%d]: Setting SAP to mode: BASIC", __func__, __LINE__);
-        loc_service_mask |= LOC_FEATURE_MASK_SAP_BASIC;
-    }
-    else if (strcmp(conf.feature_sap, "MODEM_DEFAULT") == 0) {
-        LOC_LOGD("%s:%d]: Setting SAP to mode: MODEM_DEFAULT", __func__, __LINE__);
-        loc_service_mask |= LOC_FEATURE_MASK_SAP_BASIC;
-    }
-    else if (strcmp(conf.feature_sap, "DISABLED") == 0) {
-#ifdef USE_GLIB
-        /* Enable slim_daemon even when SAP is set to DISABLED*/
-        loc_service_mask |= LOC_FEATURE_MASK_SAP_BASIC;
-#else
-        LOC_LOGD("%s:%d]: Setting SAP to mode: DISABLED", __func__, __LINE__);
-#endif
-    }
-    else {
-       LOC_LOGE("%s:%d]: Unrecognized value for SAP Mode."\
-                " Setting SAP to default mode: BASIC", __func__, __LINE__);
-       loc_service_mask |= LOC_FEATURE_MASK_SAP_BASIC;
-    }
-
     // Set service mask for ODCPI
     if (strcmp(conf.feature_odcpi, "BASIC") == 0) {
         LOC_LOGD("%s:%d]: Setting ODCPI to mode: BASIC", __func__, __LINE__);
@@ -847,12 +812,6 @@ int loc_read_process_conf(const char* conf_file_name, uint32_t * process_count_p
         else if (strcmp(conf.proc_status, "ENABLED") == 0) {
             LOC_LOGD("%s:%d]: Process %s is enabled in conf file",
                      __func__, __LINE__, conf.proc_name);
-        }
-
-        if (conf.launch_on_optin) {
-            LOC_LOGD("%s:%d]: Process %s launch will be delayed for EULA opt in.",
-                     __func__, __LINE__, conf.proc_name);
-            child_proc[j].launch_on_optin = true;
         }
 
         //Since strlcpy copies length-1 characters, we add 1 to name_length
@@ -1049,43 +1008,20 @@ int loc_read_process_conf(const char* conf_file_name, uint32_t * process_count_p
                                      LOC_PROCESS_MAX_ARG_STR_LENGTH);
                        }
                     }
-                    if(conf.loc_feature_mask &
-                       (LOC_FEATURE_MASK_SAP_BASIC | LOC_FEATURE_MASK_SAP_PREMIUM)) {
-                        if(loc_service_mask & LOC_FEATURE_MASK_SAP_BASIC) {
-                            strlcpy(child_proc[j].args[i++], arg_sap,
-                                    LOC_PROCESS_MAX_ARG_STR_LENGTH);
-                            strlcpy(child_proc[j].args[i++], arg_basic,
-                                    LOC_PROCESS_MAX_ARG_STR_LENGTH);
-                        }
-                        else if(loc_service_mask & LOC_FEATURE_MASK_SAP_PREMIUM) {
-                            strlcpy(child_proc[j].args[i++], arg_sap,
-                                    LOC_PROCESS_MAX_ARG_STR_LENGTH);
-                            strlcpy(child_proc[j].args[i++], arg_premium,
-                                    LOC_PROCESS_MAX_ARG_STR_LENGTH);
-                        }
-                        else
-                        {
-                            strlcpy(child_proc[j].args[i++], arg_sap,
-                                    LOC_PROCESS_MAX_ARG_STR_LENGTH);
-                            strlcpy(child_proc[j].args[i++], arg_disabled,
-                                    LOC_PROCESS_MAX_ARG_STR_LENGTH);
-                        }
-                    }
-
-                    if(conf.loc_feature_mask & LOC_FEATURE_MASK_GTP_WAA_BASIC) {
-                      if(loc_service_mask & LOC_FEATURE_MASK_GTP_WAA_BASIC) {
-                        strlcpy(child_proc[j].args[i++], arg_gtp_waa,
-                                LOC_PROCESS_MAX_ARG_STR_LENGTH);
-                        strlcpy(child_proc[j].args[i++], arg_basic,
-                                LOC_PROCESS_MAX_ARG_STR_LENGTH);
-                      }
-                      else
-                      {
-                        strlcpy(child_proc[j].args[i++], arg_gtp_waa,
-                                LOC_PROCESS_MAX_ARG_STR_LENGTH);
-                        strlcpy(child_proc[j].args[i++], arg_disabled,
-                                LOC_PROCESS_MAX_ARG_STR_LENGTH);
-                      }
+                    if (conf.loc_feature_mask & LOC_FEATURE_MASK_GTP_WAA_BASIC) {
+                       if (loc_service_mask & LOC_FEATURE_MASK_GTP_WAA_BASIC) {
+                           strlcpy(child_proc[j].args[i++], arg_gtp_waa,
+                                     LOC_PROCESS_MAX_ARG_STR_LENGTH);
+                           strlcpy(child_proc[j].args[i++], arg_basic,
+                                     LOC_PROCESS_MAX_ARG_STR_LENGTH);
+                       }
+                       else
+                       {
+                           strlcpy(child_proc[j].args[i++], arg_gtp_waa,
+                                     LOC_PROCESS_MAX_ARG_STR_LENGTH);
+                           strlcpy(child_proc[j].args[i++], arg_disabled,
+                                     LOC_PROCESS_MAX_ARG_STR_LENGTH);
+                       }
                     }
                     IF_LOC_LOGD {
                         LOC_LOGD("%s:%d]: %s args\n", __func__, __LINE__, child_proc[j].name[0]);
@@ -1112,7 +1048,7 @@ int loc_read_process_conf(const char* conf_file_name, uint32_t * process_count_p
             /*Fill up the remaining arguments from configuration file*/
             LOC_LOGD("%s] Parsing Process_Arguments from Configuration: %s \n",
                       __func__, conf.proc_argument);
-            if(0 != conf.proc_argument[0])
+            if ('\0' != conf.proc_argument[0])
             {
                 /**************************************
                 ** conf_proc_argument is shared by all the programs getting launched,
@@ -1125,13 +1061,30 @@ int loc_read_process_conf(const char* conf_file_name, uint32_t * process_count_p
                 loc_util_split_string(child_proc[j].argumentString, &temp_args[i],
                                       (LOC_PROCESS_MAX_NUM_ARGS - i), ' ');
                 // copy argument from the pointer to the memory
-                for (unsigned int index = i; index < LOC_PROCESS_MAX_NUM_ARGS; index++) {
+                for (unsigned int index = i; index < LOC_PROCESS_MAX_NUM_ARGS; index++, i++) {
                     if (temp_args[index] == NULL) {
                         break;
                     }
-                    strlcpy (child_proc[j].args[index], temp_args[index],
-                             sizeof (child_proc[j].args[index]));
+                    strlcpy(child_proc[j].args[index], temp_args[index],
+                            sizeof(child_proc[j].args[index]));
                 }
+            }
+            // disable dynamic launch for AUTO SP
+#if defined (USE_GLIB) && !defined (OPENWRT_BUILD)
+            conf.launch_trigger_mask = 0;
+#endif
+            // Send auto shutdown feature status, to mute shutdown timer if auto shutdown
+            // feature is disable
+            if (conf.launch_trigger_mask) {
+                LOC_LOGd("Process %s launch will be delayed.", conf.proc_name);
+                child_proc[j].launch_trigger_mask = conf.launch_trigger_mask;
+                char launchTriggerMaskBuff[LOC_PROCESS_MAX_ARG_STR_LENGTH];
+                snprintf(launchTriggerMaskBuff, LOC_PROCESS_MAX_ARG_STR_LENGTH,
+                    "0x%x", conf.launch_trigger_mask);
+                strlcpy(child_proc[j].args[i++], arg_launch_trigger_mask,
+                        LOC_PROCESS_MAX_ARG_STR_LENGTH);
+                strlcpy(child_proc[j].args[i++], launchTriggerMaskBuff,
+                        LOC_PROCESS_MAX_ARG_STR_LENGTH);
             }
         }
         else {

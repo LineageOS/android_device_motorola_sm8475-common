@@ -29,8 +29,38 @@
 
 /*
 Changes from Qualcomm Innovation Center are provided under the following license:
-Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
-SPDX-License-Identifier: BSD-3-Clause-Clear
+
+Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted (subject to the limitations in the
+disclaimer below) provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #ifndef DATAITEM_CONCRETETYPES_H
@@ -46,8 +76,6 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
 #include <unordered_set>
 #define MAC_ADDRESS_LENGTH    6
 // MAC address length in bytes
-// QMI_LOC_SRN_MAC_ADDR_LENGTH_V02
-#define SRN_MAC_ADDRESS_LENGTH    6
 #define WIFI_SUPPLICANT_DEFAULT_STATE    0
 
 #define TIME_DEFAULT_CURRTIME 0
@@ -133,20 +161,6 @@ typedef struct NetworkInfoType {
 } NetworkInfoType;
 
 
-class AirplaneModeDataItem: public IDataItemCore  {
-public:
-    AirplaneModeDataItem(IDataItemCore* di):
-            AirplaneModeDataItem(((AirplaneModeDataItem*)di)->mMode) {}
-    AirplaneModeDataItem(bool mode = false):
-        mMode(mode) {mId = AIRPLANEMODE_DATA_ITEM_ID;}
-    virtual ~AirplaneModeDataItem() {}
-    virtual void stringify(string& /*valueStr*/) override;
-    virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
-// Data members
-    bool mMode;
-
-};
-
 class ENHDataItem: public IDataItemCore {
 public:
     enum Fields { FIELD_CONSENT, FIELD_REGION, FIELD_MAX };
@@ -163,6 +177,12 @@ public:
         uint8_t combinedBits = (1 << FIELD_MAX) - 1;
         return (combinedBits == (mEnhFields & combinedBits));
     }
+
+    inline bool isUserConsentEnabled() const {
+        uint8_t consentMask = (1 << FIELD_CONSENT);
+        return ((mEnhFields & consentMask) != 0) ;
+    }
+
     void setAction(Actions action = NO_OP) {
         mAction = action;
         if (NO_OP != mAction) {
@@ -202,17 +222,6 @@ public:
     bool mEnabled;
 };
 
-class NLPStatusDataItem: public IDataItemCore {
-public:
-    NLPStatusDataItem(bool enabled = false) :
-        mEnabled(enabled) {mId = NLPSTATUS_DATA_ITEM_ID;}
-    virtual ~NLPStatusDataItem() {}
-    virtual void stringify(string& /*valueStr*/) override;
-    virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
-// Data members
-    bool mEnabled;
-};
-
 class WifiHardwareStateDataItem: public IDataItemCore {
 public:
     WifiHardwareStateDataItem(bool enabled = false) :
@@ -222,17 +231,6 @@ public:
     virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
 // Data members
     bool mEnabled;
-};
-
-class ScreenStateDataItem: public IDataItemCore {
-public:
-    ScreenStateDataItem(bool state = false) :
-        mState(state) {mId = SCREEN_STATE_DATA_ITEM_ID;}
-    virtual ~ScreenStateDataItem() {}
-    virtual void stringify(string& /*valueStr*/) override;
-    virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
-// Data members
-    bool mState;
 };
 
 class PowerConnectStateDataItem: public IDataItemCore {
@@ -278,28 +276,6 @@ public:
     int64_t mCurrTimeMillis;
     int32_t mRawOffsetTZ;
     int32_t mDstOffsetTZ;
-};
-
-class ShutdownStateDataItem: public IDataItemCore {
-public:
-    ShutdownStateDataItem(bool state = false) :
-        mState (state) {mId = SHUTDOWN_STATE_DATA_ITEM_ID;}
-    virtual ~ShutdownStateDataItem() {}
-    virtual void stringify(string& /*valueStr*/) override;
-    virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
-// Data members
-    bool mState;
-};
-
-class AssistedGpsDataItem: public IDataItemCore {
-public:
-    AssistedGpsDataItem(bool enabled = false) :
-        mEnabled(enabled) {mId = ASSISTED_GPS_DATA_ITEM_ID;}
-    virtual ~AssistedGpsDataItem() {}
-    virtual void stringify(string& /*valueStr*/) override;
-    virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
-// Data members
-    bool mEnabled;
 };
 
 class NetworkInfoDataItem: public IDataItemCore {
@@ -562,17 +538,6 @@ public:
     string mWifiApSsid;
 };
 
-class TacDataItem: public IDataItemCore {
-public:
-    TacDataItem(const string & name = "") :
-        mValue (name) {mId = TAC_DATA_ITEM_ID;}
-    virtual ~TacDataItem() {}
-    virtual void stringify(string& /*valueStr*/) override;
-    virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
-// Data members
-    string mValue;
-};
-
 class MccmncDataItem: public IDataItemCore {
 public:
     MccmncDataItem(const string & name = "") :
@@ -582,51 +547,6 @@ public:
     virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
 // Data members
     string mValue;
-};
-
-class SrnDeviceScanDetailsDataItem: public IDataItemCore {
-public:
-    SrnDeviceScanDetailsDataItem(DataItemId Id) :
-        mValidSrnData(false),
-        mApSrnRssi(-1),
-        mApSrnTimestamp(0),
-        mRequestTimestamp(0),
-        mReceiveTimestamp(0),
-       mErrorCause(-1) {mId = Id;}
-    virtual ~SrnDeviceScanDetailsDataItem() {}
-    // Data members common to all SRN tech types
-    /* Represents info on whether SRN data is valid (no error)*/
-    bool mValidSrnData;
-    /* SRN device RSSI reported */
-    int32_t mApSrnRssi;
-    /* MAC adress of SRN device */
-    uint8_t mApSrnMacAddress[SRN_MAC_ADDRESS_LENGTH];
-    /* UTC timestamp at which the scan was requested.for this SRN device*/
-    int64_t mApSrnTimestamp;
-    /* UTC timestamp at which the scan was started. */
-    int64_t mRequestTimestamp;
-    /* UTC timestamp at which the scan was received.*/
-    int64_t mReceiveTimestamp;
-    /* Reason for the error/failure if SRN details are not valid */
-    int32_t mErrorCause;
-};
-
-class BtDeviceScanDetailsDataItem: public SrnDeviceScanDetailsDataItem {
-public:
-    BtDeviceScanDetailsDataItem() :
-        SrnDeviceScanDetailsDataItem(BT_SCAN_DATA_ITEM_ID) {}
-    virtual ~BtDeviceScanDetailsDataItem() {}
-    virtual void stringify(string& /*valueStr*/) override;
-    virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
-};
-
-class BtLeDeviceScanDetailsDataItem: public SrnDeviceScanDetailsDataItem {
-public:
-    BtLeDeviceScanDetailsDataItem() :
-        SrnDeviceScanDetailsDataItem(BTLE_SCAN_DATA_ITEM_ID) {}
-    virtual ~BtLeDeviceScanDetailsDataItem() {}
-    virtual void stringify(string& /*valueStr*/) override;
-    virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
 };
 
 class BatteryLevelDataItem: public IDataItemCore {
@@ -651,6 +571,41 @@ public:
     bool mIsEmergency;
 };
 
+class PreciseLocationEnabledDataItem: public IDataItemCore {
+    public:
+        PreciseLocationEnabledDataItem(bool preciseLocationEnabled = false) :
+            mPreciseLocationEnabled(preciseLocationEnabled) {
+                mId = PRECISE_LOCATION_ENABLED_DATA_ITEM_ID;
+            }
+        virtual ~PreciseLocationEnabledDataItem() {}
+        virtual void stringify(string& /*valueStr*/) override;
+        virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
+        // Data members
+        bool mPreciseLocationEnabled;
+};
+
+class TrackingStartedDataItem: public IDataItemCore {
+    public:
+        TrackingStartedDataItem(bool trackingStarted = false) :
+            mTrackingStarted(trackingStarted) {mId = TRACKING_STARTED_DATA_ITEM_ID;}
+        virtual ~TrackingStartedDataItem() {}
+        virtual void stringify(string& /*valueStr*/) override;
+        virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
+        // Data members
+        bool mTrackingStarted;
+};
+
+class NtripStartedDataItem: public IDataItemCore {
+    public:
+        NtripStartedDataItem(bool ntripStarted = false) :
+            mNtripStarted(ntripStarted) {mId = NTRIP_STARTED_DATA_ITEM_ID;}
+        virtual ~NtripStartedDataItem() {}
+        virtual void stringify(string& /*valueStr*/) override;
+        virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
+        // Data members
+        bool mNtripStarted;
+};
+
 class LocFeatureStatusDataItem: public IDataItemCore {
     public:
         LocFeatureStatusDataItem(std::unordered_set<int> fids) :
@@ -671,6 +626,59 @@ class NlpSessionStartedDataItem: public IDataItemCore {
         virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
         // Data members
         bool mNlpStarted;
+};
+
+class QesdkWwanFeatureStatusDataItem: public IDataItemCore {
+    public:
+        QesdkWwanFeatureStatusDataItem(
+                uint32_t qesdkFeatureId = 0,
+                string appHash = ""):
+            mQesdkFeatureId(qesdkFeatureId),
+            mAppHash(appHash) { mId = QESDK_WWAN_FEATURE_STATUS_DATA_ITEM_ID; }
+
+        virtual ~QesdkWwanFeatureStatusDataItem() {}
+
+        virtual void stringify(string& /*valueStr*/) override;
+        virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
+
+        // Data members
+        uint32_t mQesdkFeatureId;
+        string mAppHash;
+};
+
+class QesdkWwanCsConsentSrcDataItem: public IDataItemCore {
+    public:
+        QesdkWwanCsConsentSrcDataItem(
+                uint32_t qesdkFeatureId = 0,
+                uint32_t pid = 0,
+                uint32_t uid = 0,
+                bool appHasFinePermission = false,
+                bool appHasBackgroundPermission = false,
+                string appHash = "",
+                string appPackageName = "",
+                string appCookie = "",
+                string appQwesLicenseId = ""):
+            mQesdkFeatureId(qesdkFeatureId),
+            mPid(pid), mUid(uid), mAppHasFinePermission(appHasFinePermission),
+            mAppHasBackgroundPermission(appHasBackgroundPermission), mAppHash(appHash),
+            mAppPackageName(appPackageName), mAppCookie(appCookie),
+            mAppQwesLicenseId(appQwesLicenseId) { mId = QESDK_WWAN_CS_CONSENT_SRC_DATA_ITEM_ID; }
+
+        virtual ~QesdkWwanCsConsentSrcDataItem() {}
+
+        virtual void stringify(string& /*valueStr*/) override;
+        virtual int32_t copyFrom(IDataItemCore* /*src*/) override;
+
+        // Data members
+        uint32_t mQesdkFeatureId;
+        uint32_t mPid;
+        uint32_t mUid;
+        bool mAppHasFinePermission;
+        bool mAppHasBackgroundPermission;
+        string mAppHash;
+        string mAppPackageName;
+        string mAppCookie;
+        string mAppQwesLicenseId;
 };
 
 } // namespace loc_core

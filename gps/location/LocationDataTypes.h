@@ -28,7 +28,8 @@
 
 /*
 Changes from Qualcomm Innovation Center are provided under the following license:
-Copyright (c) 2022, 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+
+Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted (subject to the limitations in the
@@ -60,6 +61,7 @@ IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+
 #ifndef LOCATIONDATATYPES_H
 #define LOCATIONDATATYPES_H
 
@@ -69,11 +71,14 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <list>
 #include <string.h>
 #include <string>
+#include <time.h>
 
 #define GNSS_NI_REQUESTOR_MAX  (256)
 #define GNSS_NI_MESSAGE_ID_MAX (2048)
-#define GNSS_SV_MAX            (128)
-#define GNSS_MEASUREMENTS_MAX  (128)
+#define GNSS_SV_MAX            (176)
+#define GNSS_MEASUREMENTS_MAX  (144)
+#define GNSS_BANDS_MAX         (32)
+#define DGNSS_STATION_ID_MAX   (3)
 #define GNSS_UTC_TIME_OFFSET   (3657)
 
 #define GNSS_BUGREPORT_GPS_MIN    (1)
@@ -85,8 +90,22 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define GNSS_BUGREPORT_NAVIC_MIN  (1)
 
 #define GNSS_MAX_NAME_LENGTH    (8)
+#define XTRA_STATS_DL_REASON_CODE_MAX_LEN (64)
 
-typedef enum {
+#define UNKNOWN_GPS_WEEK_NUM    (65535)
+#define REAL_TIME_ESTIMATOR_TIME_UNC_THRESHOLD_MSEC (20.0f)
+
+/**  Maximum number of satellites in an ephemeris report.  */
+#define GNSS_EPHEMERIS_LIST_MAX_SIZE_V02 32
+
+/** GNSS engine rate if requested rate and current running
+ *  rate are not mulitples of each other */
+#define MIN_GNSS_TRACKING_INTERVAL (100)
+
+/** OEM DRE Data Blob size */
+#define LDT_LOC_OEM_DRE_DATA_BLOB_SIZE 4096
+
+enum LocationError {
     LOCATION_ERROR_SUCCESS = 0,
     LOCATION_ERROR_GENERAL_FAILURE,
     LOCATION_ERROR_CALLBACK_MISSING,
@@ -97,11 +116,14 @@ typedef enum {
     LOCATION_ERROR_GEOFENCES_AT_MAX,
     LOCATION_ERROR_NOT_SUPPORTED,
     LOCATION_ERROR_TIMEOUT,
-} LocationError;
+    LOCATION_ERROR_SYSTEM_NOT_READY,
+    LOCATION_ERROR_EXCLUSIVE_SESSION_IN_PROGRESS,
+    LOCATION_ERROR_TZ_LOCKED,
+};
 
 // Flags to indicate which values are valid in a Location
-typedef uint16_t LocationFlagsMask;
-typedef enum {
+typedef uint32_t LocationFlagsMask;
+enum LocationFlagsBits {
     LOCATION_HAS_LAT_LONG_BIT          = (1<<0), // location has valid latitude and longitude
     LOCATION_HAS_ALTITUDE_BIT          = (1<<1), // location has valid altitude
     LOCATION_HAS_SPEED_BIT             = (1<<2), // location has valid speed
@@ -115,11 +137,16 @@ typedef enum {
     LOCATION_HAS_CONFORMITY_INDEX_BIT  = (1<<10), // location has valid conformity index
     LOCATION_HAS_QUALITY_TYPE_BIT      = (1<<11), // location has valid quality type
     LOCATION_HAS_TECH_MASK_BIT         = (1<<12), // location has valid tech mask
-} LocationFlagsBits;
+    LOCATION_HAS_TIME_UNC_BIT          = (1<<13), // location has timeUncMs
+    LOCATION_HAS_SYSTEM_TICK_BIT       = (1<<14), // location has system Tick for qtimer tick count
+    LOCATION_HAS_GPTP_TIME_BIT         = (1<<15), // location has valid GPTP time
+    LOCATION_HAS_GPTP_TIME_UNC_BIT     = (1<<16), // location has valid GPTP time Uncertainity
+    LOCATION_HAS_SESSION_STATUS_BIT    = (1<<17), // location has session status
+};
 
 typedef uint16_t LocationTechnologyMask;
 // mask indicating location calculations including...
-typedef enum {
+enum LocationTechnologyBits{
     LOCATION_TECHNOLOGY_GNSS_BIT                     = (1<<0), // using GNSS
     LOCATION_TECHNOLOGY_CELL_BIT                     = (1<<1), // using Cell
     LOCATION_TECHNOLOGY_WIFI_BIT                     = (1<<2), // using WiFi
@@ -131,27 +158,29 @@ typedef enum {
     LOCATION_TECHNOLOGY_PPE_BIT                      = (1<<8), // PPE
     LOCATION_TECHNOLOGY_VEH_BIT                      = (1<<9), // using vehicular data
     LOCATION_TECHNOLOGY_VIS_BIT                      = (1<<10), // using visual data
-    LOCATION_TECHNOLOGY_DGNSS_BIT                    = (1<<11),  // DGNSS
+    LOCATION_TECHNOLOGY_DGNSS_BIT                    = (1<<11), // DGNSS
     LOCATION_TECHNOLOGY_HYBRID_ALE_BIT               = (1<<12), // HYBRID using ALE POS
-} LocationTechnologyBits;
+    LOCATION_TECHNOLOGY_PDR_BIT                      = (1<<13), // PED mode
+    LOCATION_TECHNOLOGY_PROPAGATED_BIT               = (1<<14), //using cached measures
+};
 
 typedef uint32_t LocationSpoofMask;
-typedef enum {
+enum LocationSpoofBits {
     LOCATION_POSTION_SPOOFED             = (1<<0), // location position spoofed
     LOCATION_TIME_SPOOFED                = (1<<1), // location time spoofed
     LOCATION_NAVIGATION_DATA_SPOOFED     = (1<<2), // location navigation data spoofed
-} LocationSpoofBits;
+};
 
-typedef enum {
+enum LocationReliability {
     LOCATION_RELIABILITY_NOT_SET = 0,
     LOCATION_RELIABILITY_VERY_LOW,
     LOCATION_RELIABILITY_LOW,
     LOCATION_RELIABILITY_MEDIUM,
     LOCATION_RELIABILITY_HIGH,
-} LocationReliability;
+};
 
 typedef uint32_t GnssLocationNavSolutionMask;
-typedef enum {
+enum GnssLocationNavSolutionBits {
     // SBAS ionospheric correction is used
     LOCATION_SBAS_CORRECTION_IONO_BIT  = (1<<0),
     // SBAS fast correction is used
@@ -169,11 +198,13 @@ typedef enum {
     // Posiiton Report is RTF fixed corrected
     LOCATION_NAV_CORRECTION_RTK_FIXED_BIT  = (1<<7),
     // Position report is computed with only SBAS corrected SVs.
-    LOCATION_NAV_CORRECTION_ONLY_SBAS_CORRECTED_SV_USED_BIT = (1<<8)
-} GnssLocationNavSolutionBits;
+    LOCATION_NAV_CORRECTION_ONLY_SBAS_CORRECTED_SV_USED_BIT = (1<<8),
+    /** Postion report is MMF Aided */
+    LOCATION_NAV_MMF_AIDED_POSITION    = (1<<9)
+};
 
 typedef uint32_t GnssLocationPosDataMask;
-typedef enum {
+enum GnssLocationPosDataBits {
     LOCATION_NAV_DATA_HAS_LONG_ACCEL_BIT  = (1<<0), // Navigation data has Forward Acceleration
     LOCATION_NAV_DATA_HAS_LAT_ACCEL_BIT   = (1<<1), // Navigation data has Sideward Acceleration
     LOCATION_NAV_DATA_HAS_VERT_ACCEL_BIT  = (1<<2), // Navigation data has Vertical Acceleration
@@ -189,10 +220,10 @@ typedef enum {
     LOCATION_NAV_DATA_HAS_YAW_RATE_UNC_BIT   = (1<<8),
     // Navigation data has Body pitch uncertainty
     LOCATION_NAV_DATA_HAS_PITCH_UNC_BIT      = (1<<9)
-} GnssLocationPosDataBits;
+};
 
 typedef uint32_t GnssLocationPosDataMaskExt;
-typedef enum {
+enum GnssLocationPosDataBitsExt {
     // Navigation data has pitch rate
     LOCATION_NAV_DATA_HAS_PITCH_RATE_BIT     = (1<<0),
     // Navigation data has body pitch rate uncertainty
@@ -209,75 +240,82 @@ typedef enum {
     LOCATION_NAV_DATA_HAS_YAW_BIT            = (1<<6),
     // Navigation data has body roll uncertainty
     LOCATION_NAV_DATA_HAS_YAW_UNC_BIT        = (1<<7)
-} GnssLocationPosDataBitsExt;
+};
 
 typedef uint64_t GnssLocationInfoFlagMask;
-typedef enum {
-    GNSS_LOCATION_INFO_ALTITUDE_MEAN_SEA_LEVEL_BIT      = (1<<0),  // altitude mean sea level
-    GNSS_LOCATION_INFO_DOP_BIT                          = (1<<1),  // pdop, hdop, and vdop
-    GNSS_LOCATION_INFO_MAGNETIC_DEVIATION_BIT           = (1<<2),  // magnetic deviation
-    GNSS_LOCATION_INFO_HOR_RELIABILITY_BIT              = (1<<3),  // horizontal reliability
-    GNSS_LOCATION_INFO_VER_RELIABILITY_BIT              = (1<<4),  // vertical reliability
-    GNSS_LOCATION_INFO_HOR_ACCURACY_ELIP_SEMI_MAJOR_BIT = (1<<5),  // elipsode semi major
-    GNSS_LOCATION_INFO_HOR_ACCURACY_ELIP_SEMI_MINOR_BIT = (1<<6),  // elipsode semi minor
-    GNSS_LOCATION_INFO_HOR_ACCURACY_ELIP_AZIMUTH_BIT    = (1<<7),  // accuracy elipsode azimuth
-    GNSS_LOCATION_INFO_GNSS_SV_USED_DATA_BIT            = (1<<8),  // svUsedInPosition,
+#define LDT_GNSS_LOCATION_INFO_ALTITUDE_MEAN_SEA_LEVEL_BIT (1<<0)  // altitude mean sea level
+#define LDT_GNSS_LOCATION_INFO_DOP_BIT (1<<1)  // pdop, hdop and vdop
+#define LDT_GNSS_LOCATION_INFO_MAGNETIC_DEVIATION_BIT (1<<2)  // magnetic deviation
+#define LDT_GNSS_LOCATION_INFO_HOR_RELIABILITY_BIT (1<<3)  // horizontal reliability
+#define LDT_GNSS_LOCATION_INFO_VER_RELIABILITY_BIT (1<<4)  // vertical reliability
+#define LDT_GNSS_LOCATION_INFO_HOR_ACCURACY_ELIP_SEMI_MAJOR_BIT (1<<5)  // elipsode semi major
+#define LDT_GNSS_LOCATION_INFO_HOR_ACCURACY_ELIP_SEMI_MINOR_BIT (1<<6)  // elipsode semi minor
+#define LDT_GNSS_LOCATION_INFO_HOR_ACCURACY_ELIP_AZIMUTH_BIT (1<<7)  // accuracy elipsode azimuth
+#define LDT_GNSS_LOCATION_INFO_GNSS_SV_USED_DATA_BIT (1<<8)  // svUsedInPosition
                                                                    //       numOfMeasReceived
                                                                    //       and measUsageInfo
-    GNSS_LOCATION_INFO_NAV_SOLUTION_MASK_BIT            = (1<<9),  // navSolutionMask
-    GNSS_LOCATION_INFO_SV_SOURCE_INFO_BIT               = (1<<10), // LocSvInfoSource
-    GNSS_LOCATION_INFO_POS_DYNAMICS_DATA_BIT            = (1<<11), // position dynamics data &
+#define LDT_GNSS_LOCATION_INFO_NAV_SOLUTION_MASK_BIT (1<<9)  // navSolutionMask
+#define LDT_GNSS_LOCATION_INFO_SV_SOURCE_INFO_BIT (1<<10) // LocSvInfoSource
+#define LDT_GNSS_LOCATION_INFO_POS_DYNAMICS_DATA_BIT (1<<11) // position dynamics data &
                                                                    //       Position Dynamics Ext
-    GNSS_LOCATION_INFO_EXT_DOP_BIT                      = (1<<12), // gdop, tdop
-    GNSS_LOCATION_INFO_NORTH_STD_DEV_BIT                = (1<<13), // North standard deviation
-    GNSS_LOCATION_INFO_EAST_STD_DEV_BIT                 = (1<<14), // East standard deviation
-    GNSS_LOCATION_INFO_NORTH_VEL_BIT                    = (1<<15), // North Velocity
-    GNSS_LOCATION_INFO_EAST_VEL_BIT                     = (1<<16), // East Velocity
-    GNSS_LOCATION_INFO_UP_VEL_BIT                       = (1<<17), // Up Velocity
-    GNSS_LOCATION_INFO_NORTH_VEL_UNC_BIT                = (1<<18), // North Velocity Uncertainty
-    GNSS_LOCATION_INFO_EAST_VEL_UNC_BIT                 = (1<<19), // East Velocity Uncertainty
-    GNSS_LOCATION_INFO_UP_VEL_UNC_BIT                   = (1<<20), // Up Velocity Uncertainty
-    GNSS_LOCATION_INFO_LEAP_SECONDS_BIT                 = (1<<21), // leap seconds
-    GNSS_LOCATION_INFO_TIME_UNC_BIT                     = (1<<22), // time uncertainty
-    GNSS_LOCATION_INFO_NUM_SV_USED_IN_POSITION_BIT      = (1<<23), // number of SV used in position
-    GNSS_LOCATION_INFO_CALIBRATION_CONFIDENCE_BIT       = (1<<24), // sensor cal confidence
-    GNSS_LOCATION_INFO_CALIBRATION_STATUS_BIT           = (1<<25), // sensor cal status
-    GNSS_LOCATION_INFO_OUTPUT_ENG_TYPE_BIT              = (1<<26), // output engine type
-    GNSS_LOCATION_INFO_OUTPUT_ENG_MASK_BIT              = (1<<27), // output engine mask
-    GNSS_LOCATION_INFO_CONFORMITY_INDEX_BIT             = (1<<28), // conformity index
-    GNSS_LOCATION_INFO_LLA_VRP_BASED_BIT                = (1<<29), // VRP-based lat/long/alt
-    GNSS_LOCATION_INFO_ENU_VELOCITY_VRP_BASED_BIT       = (1<<30), // VRP-based east/north/up vel
-    GNSS_LOCATION_INFO_DR_SOLUTION_STATUS_MASK_BIT      = (1ULL<<31), // Valid DR solution status
-    GNSS_LOCATION_INFO_ALTITUDE_ASSUMED_BIT             = (1ULL<<32), // Valid altitude assumed
-    GNSS_LOCATION_INFO_SESSION_STATUS_BIT               = (1ULL<<33), // session status
-} GnssLocationInfoFlagBits;
+#define LDT_GNSS_LOCATION_INFO_EXT_DOP_BIT (1<<12) // gdop tdop
+#define LDT_GNSS_LOCATION_INFO_NORTH_STD_DEV_BIT (1<<13) // North standard deviation
+#define LDT_GNSS_LOCATION_INFO_EAST_STD_DEV_BIT (1<<14) // East standard deviation
+#define LDT_GNSS_LOCATION_INFO_NORTH_VEL_BIT (1<<15) // North Velocity
+#define LDT_GNSS_LOCATION_INFO_EAST_VEL_BIT (1<<16) // East Velocity
+#define LDT_GNSS_LOCATION_INFO_UP_VEL_BIT (1<<17) // Up Velocity
+#define LDT_GNSS_LOCATION_INFO_NORTH_VEL_UNC_BIT (1<<18) // North Velocity Uncertainty
+#define LDT_GNSS_LOCATION_INFO_EAST_VEL_UNC_BIT (1<<19) // East Velocity Uncertainty
+#define LDT_GNSS_LOCATION_INFO_UP_VEL_UNC_BIT (1<<20) // Up Velocity Uncertainty
+#define LDT_GNSS_LOCATION_INFO_LEAP_SECONDS_BIT (1<<21) // leap seconds
+#define LDT_GNSS_LOCATION_INFO_NUM_SV_USED_IN_POSITION_BIT (1<<22) // number of SV used in position
+#define LDT_GNSS_LOCATION_INFO_CALIBRATION_CONFIDENCE_BIT (1<<23) // sensor cal confidence
+#define LDT_GNSS_LOCATION_INFO_CALIBRATION_STATUS_BIT (1<<24) // sensor cal status
+#define LDT_GNSS_LOCATION_INFO_OUTPUT_ENG_TYPE_BIT (1<<25) // output engine type
+#define LDT_GNSS_LOCATION_INFO_OUTPUT_ENG_MASK_BIT (1<<26) // output engine mask
+#define LDT_GNSS_LOCATION_INFO_CONFORMITY_INDEX_BIT (1<<27) // conformity index
+#define LDT_GNSS_LOCATION_INFO_LLA_VRP_BASED_BIT (1<<28) // VRP-based lat/long/alt
+#define LDT_GNSS_LOCATION_INFO_ENU_VELOCITY_VRP_BASED_BIT (1<<29) // VRP-based east/north/up vel
+#define LDT_GNSS_LOCATION_INFO_DR_SOLUTION_STATUS_MASK_BIT (1ULL<<30) // Valid DR solution status
+#define LDT_GNSS_LOCATION_INFO_ALTITUDE_ASSUMED_BIT (1ULL<<31) // Valid altitude assumed
+#define LDT_GNSS_LOCATION_INFO_SESSION_STATUS_BIT (1ULL<<32) // session status
+#define LDT_GNSS_LOCATION_INFO_INTEGRITY_RISK_USED_BIT (1ULL<<33) // integrity risk used
+#define LDT_GNSS_LOCATION_INFO_PROTECT_ALONG_TRACK_BIT (1ULL<<34) // along-track protection level
+#define LDT_GNSS_LOCATION_INFO_PROTECT_CROSS_TRACK_BIT (1ULL<<35) // Cross-track protection level
+#define LDT_GNSS_LOCATION_INFO_PROTECT_VERTICAL_BIT (1ULL<<36) // vertical protection level
+#define LDT_GNSS_LOCATION_INFO_DGNSS_STATION_ID_BIT (1ULL<<37) // dgnss station id
+#define LDT_GNSS_LOCATION_INFO_BASE_LINE_LENGTH_BIT  (1ULL<<38) // base station & receiver distance
+#define LDT_GNSS_LOCATION_INFO_AGE_OF_CORRECTION_BIT (1ULL<<39) // Age of Corrections
+#define LDT_GNSS_LOCATION_INFO_LEAP_SECONDS_UNC_BIT (1ULL<<40) // Leap Second Uncertainity
+#define LDT_GNSS_LOCATION_INFO_REPORT_INTERVAL_BIT  (1ULL<<41) // Valid reporting interval
+#define LDT_GNSS_LOCATION_INFO_EXTENDED_DATA_BIT    (1ULL<<42) // Gnss Extended Data
 
-typedef enum {
+enum GeofenceBreachType {
     GEOFENCE_BREACH_ENTER = 0,
     GEOFENCE_BREACH_EXIT,
     GEOFENCE_BREACH_DWELL_IN,
     GEOFENCE_BREACH_DWELL_OUT,
     GEOFENCE_BREACH_UNKNOWN,
-} GeofenceBreachType;
+};
 
 typedef uint16_t GeofenceBreachTypeMask;
-typedef enum {
+enum GeofenceBreachTypeBits {
     GEOFENCE_BREACH_ENTER_BIT     = (1<<0),
     GEOFENCE_BREACH_EXIT_BIT      = (1<<1),
     GEOFENCE_BREACH_DWELL_IN_BIT  = (1<<2),
     GEOFENCE_BREACH_DWELL_OUT_BIT = (1<<3),
-} GeofenceBreachTypeBits;
+};
 
-typedef enum {
+enum GeofenceStatusAvailable {
     GEOFENCE_STATUS_AVAILABILE_NO = 0,
     GEOFENCE_STATUS_AVAILABILE_YES,
-} GeofenceStatusAvailable;
+};
 
-typedef enum {
+enum GeofenceConfidence {
     GEOFENCE_CONFIDENCE_LOW = 1,
     GEOFENCE_CONFIDENCE_MEDIUM,
     GEOFENCE_CONFIDENCE_HIGH,
-} GeofenceConfidence;
+};
 
 // Set of masks for Modem and QWES capabilities.
 typedef uint64_t LocationCapabilitiesMask;
@@ -286,7 +324,7 @@ typedef uint64_t LocationCapabilitiesMask;
 // supports startBatching API with minInterval param
 #define   LOCATION_CAPABILITIES_TIME_BASED_BATCHING_BIT           (1<<1)
 // supports startTracking API with minDistance param
-#define  LOCATION_CAPABILITIES_DISTANCE_BASED_TRACKING_BIT       (1<<2)
+#define  LOCATION_CAPABILITIES_DISTANCE_BASED_TRACKING_BIT        (1<<2)
 // supports startBatching API with minDistance param
 #define   LOCATION_CAPABILITIES_DISTANCE_BASED_BATCHING_BIT       (1<<3)
 // supports addGeofences API
@@ -298,7 +336,7 @@ typedef uint64_t LocationCapabilitiesMask;
 // supports startTracking/startBatching API with LocationOptions.mode of MSA (MS Assisted)
 #define   LOCATION_CAPABILITIES_GNSS_MSA_BIT                      (1<<7)
 // supports debug nmea sentences in the debugNmeaCallback
-#define   LOCATION_CAPABILITIES_DEBUG_NMEA_BIT                    (1<<8)
+#define   LOCATION_CAPABILITIES_DEBUG_DATA_BIT                    (1<<8)
 // support outdoor trip batching
 #define   LOCATION_CAPABILITIES_OUTDOOR_TRIP_BATCHING_BIT         (1<<9)
 // support constellation enablement
@@ -352,86 +390,114 @@ typedef uint64_t LocationCapabilitiesMask;
 #define   LOCATION_CAPABILITIES_QWES_QDR3                        (1<<26)
 // This mask indicates DGNSS license bundle is enabled.
 #define   LOCATION_CAPABILITIES_QWES_DGNSS                       (1<<27)
-// This mask indicates engine debug data enabled.
-#define LOCATION_CAPABILITIES_ENGINE_DEBUG_DATA_BIT              (1<<28)
 // This mask indicates Antenna info is enabled.
-#define   LOCATION_CAPABILITIES_ANTENNA_INFO                     (1<<29)
+#define   LOCATION_CAPABILITIES_ANTENNA_INFO                     (1<<28)
 // This mask indicates qppe or qfe library is presented.
-#define   LOCATION_CAPABILITIES_PRECISE_LIB_PRESENT              (1<<30)
+#define   LOCATION_CAPABILITIES_PRECISE_LIB_PRESENT              (1<<29)
 // This mask indicates wifi RSSI positioning is
 // enabled by QWES license.
-#define   LOCATION_CAPABILITIES_QWES_WIFI_RSSI_POSITIONING            (1ULL<<31)
+#define   LOCATION_CAPABILITIES_QWES_WIFI_RSSI_POSITIONING       (1ULL<<30)
 // This mask indicates wifi RTT positioning is
 // enabled by QWES license.
-#define   LOCATION_CAPABILITIES_QWES_WIFI_RTT_POSITIONING             (1ULL<<32)
+#define   LOCATION_CAPABILITIES_QWES_WIFI_RTT_POSITIONING        (1ULL<<31)
 // This mask indicates wifi RSSI positioning is supported.
-#define   LOCATION_CAPABILITIES_WIFI_RSSI_POSITIONING                          (1ULL<<33)
+#define   LOCATION_CAPABILITIES_WIFI_RSSI_POSITIONING                 (1ULL<<32)
 // This mask indicates wifi RTT positioning is supported.
-#define   LOCATION_CAPABILITIES_WIFI_RTT_POSITIONING                           (1ULL<<34)
+#define   LOCATION_CAPABILITIES_WIFI_RTT_POSITIONING                  (1ULL<<33)
+// support GNSS bands
+#define   LOCATION_CAPABILITIES_GNSS_BANDS_BIT                        (1ULL<<34)
+// This mask indicates modem 3GPP source is available.
+#define   LOCATION_CAPABILITIES_MODEM_3GPP_AVAIL                      (1ULL<<35)
+// This mask indicates PR ML inference is present
+#define   LOCATION_CAPABILITIES_NLOS_ML20                             (1ULL<<36)
+// This mask indicates if NHz is enableD
+#define   LOCATION_CAPABILITIES_QWES_GNSS_NHZ                         (1ULL<<37)
+// This mask indicates wwan standard positioning is
+// enabled by QWES license.
+#define   LOCATION_CAPABILITIES_QWES_WWAN_STANDARD_POSITIONING        (1ULL<<38)
+// This mask indicates wwan premium positioning is
+// enabled by QWES license.
+#define   LOCATION_CAPABILITIES_QWES_WWAN_PREMIUM_POSITIONING         (1ULL<<39)
 
 typedef uint8_t LocationQwesFeatureType;
-typedef enum {
+enum LocationQwesFeatureTypes {
     // Modem supports Carrier Phase for Precise Positioning
     // Measurement Engine (PPME).
     LOCATION_QWES_FEATURE_TYPE_CARRIER_PHASE                 = 1,
     // Modem supports SV Polynomial for tightly coupled external
     // DR support. This is a Standalone Feature.
-    LOCATION_QWES_FEATURE_TYPE_SV_POLYNOMIAL,
+    LOCATION_QWES_FEATURE_TYPE_SV_POLYNOMIAL                 = 2,
     // Modem supports SV Ephemeris for tightly coupled external
     // PPE support. This is a Standalone Feature.
-    LOCATION_QWES_FEATURE_TYPE_SV_EPH,
+    LOCATION_QWES_FEATURE_TYPE_SV_EPH                        = 3,
     // Modem supports GNSS Single Frequency feature. This is a
     // Standalone Feature.
-    LOCATION_QWES_FEATURE_TYPE_GNSS_SINGLE_FREQUENCY,
+    LOCATION_QWES_FEATURE_TYPE_GNSS_SINGLE_FREQUENCY         = 4,
     // Modem supports GNSS Multi Frequency feature. Multi Frequency
     // enables Single frequency also.
-    LOCATION_QWES_FEATURE_TYPE_GNSS_MULTI_FREQUENCY,
+    LOCATION_QWES_FEATURE_TYPE_GNSS_MULTI_FREQUENCY          = 5,
     // This indicates Time and Frequency status.
-    LOCATION_QWES_FEATURE_TYPE_TIME_FREQUENCY,
+    LOCATION_QWES_FEATURE_TYPE_TIME_FREQUENCY                = 6,
     // This indicates Time Uncertainty  status.
-    LOCATION_QWES_FEATURE_TYPE_TIME_UNCERTAINTY,
+    LOCATION_QWES_FEATURE_TYPE_TIME_UNCERTAINTY              = 7,
     // This indicates Clock Estimate status.
-    LOCATION_QWES_FEATURE_TYPE_CLOCK_ESTIMATE,
+    LOCATION_QWES_FEATURE_TYPE_CLOCK_ESTIMATE                = 8,
     // This mask indicates that PPE (Precise Positioning Engine)
     // library is enabled or Precise Positioning Framework (PPF)
     // is available. This bundle includes features for Carrier
     // Phase and SV Ephermeris.
-    LOCATION_QWES_FEATURE_TYPE_PPE,
+    LOCATION_QWES_FEATURE_TYPE_PPE                           = 9,
     // This indicates QDR2_C license bundle is enabled. This
     // bundle includes features for SV Polynomial.
-    LOCATION_QWES_FEATURE_TYPE_QDR2,
+    LOCATION_QWES_FEATURE_TYPE_QDR2                          = 10,
     // This indicates QDR3_C license bundle is enabled. This
     // bundle includes features for SV Polynomial.
-    LOCATION_QWES_FEATURE_TYPE_QDR3,
+    LOCATION_QWES_FEATURE_TYPE_QDR3                          = 11,
     // This indicates VEPP license bundle is enabled. VEPP
     // bundle include Carrier Phase and SV Polynomial features.
-    LOCATION_QWES_FEATURE_TYPE_VPE,
+    LOCATION_QWES_FEATURE_TYPE_VPE                           = 12,
     // This indicates DGNSS license is enabled.
-    LOCATION_QWES_FEATURE_TYPE_DGNSS,
+    LOCATION_QWES_FEATURE_TYPE_DGNSS                         = 13,
     // This indicates DLP feature is enabled by QESDK APP
     // license
-    LOCATION_QWES_FEATURE_TYPE_DLP_QESDK,
+    LOCATION_QWES_FEATURE_TYPE_DLP_QESDK                     = 14,
+    // This indicates MLP feature is enabled by QESDK APP
+    // license
+    LOCATION_QWES_FEATURE_TYPE_MLP_QESDK                     = 15,
+    // This indicates EP can do SSR2OSR correction data
+    // parseing
+    LOCATION_FEATURE_TYPE_CORR_DATA_PARSER                   = 16,
+    // This indicates PR meas ML infernece is enabled
+    LOCATION_QWES_FEATURE_NLOS_ML20                          = 17,
     // This indicates wifi RSSI positioning is
     // enabled by QWES license.
-    LOCATION_QWES_FEATURE_TYPE_RSSI_POSITIONING,
+    LOCATION_QWES_FEATURE_TYPE_RSSI_POSITIONING              = 18,
     // This indicates wifi RTT positioning is
     // enabled by QWES license.
-    LOCATION_QWES_FEATURE_TYPE_RTT_POSITIONING,
+    LOCATION_QWES_FEATURE_TYPE_RTT_POSITIONING               = 19,
+    // This indicates if NHz feature is supported
+    LOCATION_QWES_FEATURE_STATUS_GNSS_NHZ                    = 20,
+    // This indicates wwan standard positioning is
+    // enabled by QWES license.
+    LOCATION_QWES_FEATURE_TYPE_WWAN_STANDARD_POSITIONING     = 21,
+    // This indicates wwan premium positioning is
+    // enabled by QWES license.
+    LOCATION_QWES_FEATURE_TYPE_WWAN_PREMIUM_POSITIONING      = 22,
     // Max value
-    LOCATION_QWES_FEATURE_TYPE_MAX
-} LocationQwesFeatureTypes;
+    LOCATION_QWES_FEATURE_TYPE_MAX                           = 23
+};
 
 typedef uint64_t LocationHwCapabilitiesMask;
-typedef enum {
+enum LocationHwCapabilitiesBits {
     // This indicates wifi HW has RSSI capability.
     LOCATION_WIFI_CAPABILITY_RSSI = (1<<0),
     // This indicates wifi HW has RTT capability.
     LOCATION_WIFI_CAPABILITY_RTT  = (1<<1)
-} LocationHwCapabilitiesBits;
+};
 
-typedef enum {
+enum LocationTechnologyType {
     LOCATION_TECHNOLOGY_TYPE_GNSS = 0,
-} LocationTechnologyType;
+};
 
 // Configures how GPS is locked when GPS is disabled (through GnssDisable)
 /*
@@ -465,82 +531,85 @@ enum {
     GNSS_CONFIG_GPS_LOCK_NFW_R3             = 0x00000200,
     GNSS_CONFIG_GPS_LOCK_NFW_SUPL           = 0x00000400,
     GNSS_CONFIG_GPS_LOCK_NFW_CP             = 0X00000800,
+    GNSS_CONFIG_GPS_LOCK_NFW_NTN            = 0x00001000,
     GNSS_CONFIG_GPS_LOCK_NFW_ALL            =
-            (((GNSS_CONFIG_GPS_LOCK_NFW_CP << 1) - 1) & ~GNSS_CONFIG_GPS_LOCK_MO),
+            (((GNSS_CONFIG_GPS_LOCK_NFW_NTN << 1) - 1) & ~GNSS_CONFIG_GPS_LOCK_MO),
     GNSS_CONFIG_GPS_LOCK_MO_AND_NI          =
             (GNSS_CONFIG_GPS_LOCK_MO | GNSS_CONFIG_GPS_LOCK_NFW_ALL),
 };
 typedef uint32_t GnssConfigGpsLock;
 
 // SUPL version
-typedef enum {
+enum GnssConfigSuplVersion {
     GNSS_CONFIG_SUPL_VERSION_1_0_0 = 1,
     GNSS_CONFIG_SUPL_VERSION_2_0_0,
     GNSS_CONFIG_SUPL_VERSION_2_0_2,
     GNSS_CONFIG_SUPL_VERSION_2_0_4,
-} GnssConfigSuplVersion;
+};
 
 // LTE Positioning Profile
 typedef uint16_t GnssConfigLppProfileMask;
-typedef enum {
+enum GnssConfigLppProfileBits {
     GNSS_CONFIG_LPP_PROFILE_RRLP_ON_LTE = 0,                         // RRLP on LTE (Default)
     GNSS_CONFIG_LPP_PROFILE_USER_PLANE_BIT                 = (1<<0), // LPP User Plane (UP) on LTE
     GNSS_CONFIG_LPP_PROFILE_CONTROL_PLANE_BIT              = (1<<1), // LPP_Control_Plane (CP)
     GNSS_CONFIG_LPP_PROFILE_USER_PLANE_OVER_NR5G_SA_BIT    = (1<<2), // LPP User Plane (UP) on LTE
     GNSS_CONFIG_LPP_PROFILE_CONTROL_PLANE_OVER_NR5G_SA_BIT = (1<<3), // LPP_Control_Plane (CP)
-} GnssConfigLppProfileBits;
+};
 
 // Technology for LPPe Control Plane
 typedef uint16_t GnssConfigLppeControlPlaneMask;
-typedef enum {
+enum GnssConfigLppeControlPlaneBits {
     GNSS_CONFIG_LPPE_CONTROL_PLANE_DBH_BIT                  = (1<<0), // DBH
     GNSS_CONFIG_LPPE_CONTROL_PLANE_WLAN_AP_MEASUREMENTS_BIT = (1<<1), // WLAN_AP_MEASUREMENTS
-    GNSS_CONFIG_LPPE_CONTROL_PLANE_SRN_AP_MEASUREMENTS_BIT = (1<<2), // SRN_AP_MEASUREMENTS
+    GNSS_CONFIG_LPPE_CONTROL_PLANE_SRN_AP_MEASUREMENTS_BIT = (1<<2),
+                                                            // SRN_AP_MEASUREMENTS, Not Supported
     GNSS_CONFIG_LPPE_CONTROL_PLANE_SENSOR_BARO_MEASUREMENTS_BIT = (1<<3),
                                                              // SENSOR_BARO_MEASUREMENTS
     GNSS_CONFIG_LPPE_CONTROL_PLANE_NON_E911_BIT = (1<<4), // NON_E911
     GNSS_CONFIG_LPPE_CONTROL_PLANE_CIV_ADDRESS_BIT          = (1<<5), // CIV_ADDRESS
-} GnssConfigLppeControlPlaneBits;
+};
 
 // Technology for LPPe User Plane
 typedef uint16_t GnssConfigLppeUserPlaneMask;
-typedef enum {
+enum GnssConfigLppeUserPlaneBits {
     GNSS_CONFIG_LPPE_USER_PLANE_DBH_BIT                  = (1<<0), // DBH
     GNSS_CONFIG_LPPE_USER_PLANE_WLAN_AP_MEASUREMENTS_BIT = (1<<1), // WLAN_AP_MEASUREMENTS
-    GNSS_CONFIG_LPPE_USER_PLANE_SRN_AP_MEASUREMENTS_BIT = (1<<2), // SRN_AP_MEASUREMENTS
+    GNSS_CONFIG_LPPE_USER_PLANE_SRN_AP_MEASUREMENTS_BIT = (1<<2),
+                                                            // SRN_AP_MEASUREMENTS, Not Supported
     GNSS_CONFIG_LPPE_USER_PLANE_SENSOR_BARO_MEASUREMENTS_BIT = (1<<3),
                                                             // SENSOR_BARO_MEASUREMENTS
     GNSS_CONFIG_LPPE_USER_PLANE_NON_E911_BIT = (1<<4), // NON_E911
     GNSS_CONFIG_LPPE_USER_PLANE_CIV_ADDRESS_BIT           = (1<<5), // CIV_ADDRESS
-} GnssConfigLppeUserPlaneBits;
+};
 
 // Positioning Protocol on A-GLONASS system
 typedef uint16_t GnssConfigAGlonassPositionProtocolMask;
-typedef enum {
+enum GnssConfigAGlonassPositionProtocolBits {
     GNSS_CONFIG_RRC_CONTROL_PLANE_BIT = (1<<0),  // RRC Control Plane
     GNSS_CONFIG_RRLP_USER_PLANE_BIT   = (1<<1),  // RRLP User Plane
     GNSS_CONFIG_LLP_USER_PLANE_BIT    = (1<<2),  // LPP User Plane
     GNSS_CONFIG_LLP_CONTROL_PLANE_BIT = (1<<3),  // LPP Control Plane
-} GnssConfigAGlonassPositionProtocolBits;
+};
 
-typedef enum {
+enum GnssConfigEmergencyPdnForEmergencySupl {
     GNSS_CONFIG_EMERGENCY_PDN_FOR_EMERGENCY_SUPL_NO = 0,
     GNSS_CONFIG_EMERGENCY_PDN_FOR_EMERGENCY_SUPL_YES,
-} GnssConfigEmergencyPdnForEmergencySupl;
+};
 
-typedef enum {
+enum GnssConfigSuplEmergencyServices {
     GNSS_CONFIG_SUPL_EMERGENCY_SERVICES_NO = 0,
     GNSS_CONFIG_SUPL_EMERGENCY_SERVICES_YES,
-} GnssConfigSuplEmergencyServices;
+};
 
 typedef uint16_t GnssConfigSuplModeMask;
-typedef enum {
+enum GnssConfigSuplModeBits {
     GNSS_CONFIG_SUPL_MODE_MSB_BIT = (1<<0),
     GNSS_CONFIG_SUPL_MODE_MSA_BIT = (1<<1),
-} GnssConfigSuplModeBits;
+};
 
 typedef uint32_t GnssConfigFlagsMask;
-typedef enum {
+enum GnssConfigFlagsBits {
     GNSS_CONFIG_FLAGS_GPS_LOCK_VALID_BIT                   = (1<<0),
     GNSS_CONFIG_FLAGS_SUPL_VERSION_VALID_BIT               = (1<<1),
     GNSS_CONFIG_FLAGS_SET_ASSISTANCE_DATA_VALID_BIT        = (1<<2),
@@ -557,37 +626,38 @@ typedef enum {
     GNSS_CONFIG_FLAGS_MIN_GPS_WEEK_BIT                     = (1<<13),
     GNSS_CONFIG_FLAGS_MIN_SV_ELEVATION_BIT                 = (1<<14),
     GNSS_CONFIG_FLAGS_CONSTELLATION_SECONDARY_BAND_BIT     = (1<<15),
-} GnssConfigFlagsBits;
+    GNSS_CONFIG_FLAGS_XTRA_STATUS_BIT                      = (1<<16),
+};
 
-typedef enum {
+enum GnssNiEncodingType {
     GNSS_NI_ENCODING_TYPE_NONE = 0,
     GNSS_NI_ENCODING_TYPE_GSM_DEFAULT,
     GNSS_NI_ENCODING_TYPE_UTF8,
     GNSS_NI_ENCODING_TYPE_UCS2,
-} GnssNiEncodingType;
+};
 
-typedef enum {
+enum GnssNiType {
     GNSS_NI_TYPE_VOICE = 0,
     GNSS_NI_TYPE_SUPL,
     GNSS_NI_TYPE_CONTROL_PLANE,
     GNSS_NI_TYPE_EMERGENCY_SUPL
-} GnssNiType;
+};
 
 typedef uint16_t GnssNiOptionsMask;
-typedef enum {
+enum GnssNiOptionsBits {
     GNSS_NI_OPTIONS_NOTIFICATION_BIT     = (1<<0),
     GNSS_NI_OPTIONS_VERIFICATION_BIT     = (1<<1),
     GNSS_NI_OPTIONS_PRIVACY_OVERRIDE_BIT = (1<<2),
-} GnssNiOptionsBits;
+};
 
-typedef enum {
+enum GnssNiResponse {
     GNSS_NI_RESPONSE_ACCEPT = 1,
     GNSS_NI_RESPONSE_DENY,
     GNSS_NI_RESPONSE_NO_RESPONSE,
     GNSS_NI_RESPONSE_IGNORE,
-} GnssNiResponse;
+};
 
-typedef enum {
+enum GnssSvType {
     GNSS_SV_TYPE_UNKNOWN = 0,
     GNSS_SV_TYPE_GPS,
     GNSS_SV_TYPE_SBAS,
@@ -596,73 +666,76 @@ typedef enum {
     GNSS_SV_TYPE_BEIDOU,
     GNSS_SV_TYPE_GALILEO,
     GNSS_SV_TYPE_NAVIC,
-} GnssSvType;
+};
 
-typedef enum {
+enum GnssEphemerisType {
     GNSS_EPH_TYPE_UNKNOWN = 0,
     GNSS_EPH_TYPE_EPHEMERIS,
     GNSS_EPH_TYPE_ALMANAC,
-} GnssEphemerisType;
+};
 
-typedef enum {
+enum GnssEphemerisSource {
     GNSS_EPH_SOURCE_UNKNOWN = 0,
     GNSS_EPH_SOURCE_DEMODULATED,
     GNSS_EPH_SOURCE_SUPL_PROVIDED,
     GNSS_EPH_SOURCE_OTHER_SERVER_PROVIDED,
     GNSS_EPH_SOURCE_LOCAL,
-} GnssEphemerisSource;
+};
 
-typedef enum {
+enum GnssEphemerisHealth {
     GNSS_EPH_HEALTH_UNKNOWN = 0,
     GNSS_EPH_HEALTH_GOOD,
     GNSS_EPH_HEALTH_BAD,
-} GnssEphemerisHealth;
+};
 
 typedef uint16_t GnssSvOptionsMask;
-typedef enum {
+enum GnssSvOptionsBits {
     GNSS_SV_OPTIONS_HAS_EPHEMER_BIT             = (1<<0),
     GNSS_SV_OPTIONS_HAS_ALMANAC_BIT             = (1<<1),
+    // Bit indicates whether this SV is used in SPE fix.
     GNSS_SV_OPTIONS_USED_IN_FIX_BIT             = (1<<2),
     GNSS_SV_OPTIONS_HAS_CARRIER_FREQUENCY_BIT   = (1<<3),
-    GNSS_SV_OPTIONS_HAS_GNSS_SIGNAL_TYPE_BIT          = (1<<4),
+    GNSS_SV_OPTIONS_HAS_GNSS_SIGNAL_TYPE_BIT    = (1<<4),
     GNSS_SV_OPTIONS_HAS_BASEBAND_CARRIER_TO_NOISE_BIT = (1<<5),
-} GnssSvOptionsBits;
+    GNSS_SV_OPTIONS_HAS_ELEVATION_BIT           = (1<<6),
+    GNSS_SV_OPTIONS_HAS_AZIMUTH_BIT             = (1<<7),
+};
 
-typedef enum {
+enum GnssAssistanceType {
     GNSS_ASSISTANCE_TYPE_SUPL = 0,
     GNSS_ASSISTANCE_TYPE_C2K,
     GNSS_ASSISTANCE_TYPE_SUPL_EIMS,
     GNSS_ASSISTANCE_TYPE_SUPL_IMS,
-} GnssAssistanceType;
+};
 
-typedef enum {
+enum GnssSuplMode {
     GNSS_SUPL_MODE_STANDALONE = 0,
     GNSS_SUPL_MODE_MSB,
     GNSS_SUPL_MODE_MSA,
-} GnssSuplMode;
+};
 
-typedef enum {
+enum BatchingMode {
     BATCHING_MODE_ROUTINE = 0,   // positions are reported when batched positions memory is full
     BATCHING_MODE_TRIP,          // positions are reported when a certain distance is covered
     BATCHING_MODE_NO_AUTO_REPORT // no report of positions automatically, instead queried on demand
-} BatchingMode;
+};
 
-typedef enum {
+enum BatchingStatus {
     BATCHING_STATUS_TRIP_COMPLETED = 0,
     BATCHING_STATUS_POSITION_AVAILABE,
     BATCHING_STATUS_POSITION_UNAVAILABLE
-} BatchingStatus;
+};
 
 typedef uint16_t GnssMeasurementsAdrStateMask;
-typedef enum {
+enum GnssMeasurementsAdrStateBits {
     GNSS_MEASUREMENTS_ACCUMULATED_DELTA_RANGE_STATE_UNKNOWN                 = 0,
     GNSS_MEASUREMENTS_ACCUMULATED_DELTA_RANGE_STATE_VALID_BIT               = (1<<0),
     GNSS_MEASUREMENTS_ACCUMULATED_DELTA_RANGE_STATE_RESET_BIT               = (1<<1),
     GNSS_MEASUREMENTS_ACCUMULATED_DELTA_RANGE_STATE_CYCLE_SLIP_BIT          = (1<<2),
     GNSS_MEASUREMENTS_ACCUMULATED_DELTA_RANGE_STATE_HALF_CYCLE_RESOLVED_BIT = (1<<3),
-} GnssMeasurementsAdrStateBits;
+};
 
-typedef enum {
+enum GnssMeasurementsCodeType {
     GNSS_MEASUREMENTS_CODE_TYPE_A       = 0,
     GNSS_MEASUREMENTS_CODE_TYPE_B       = 1,
     GNSS_MEASUREMENTS_CODE_TYPE_C       = 2,
@@ -677,11 +750,13 @@ typedef enum {
     GNSS_MEASUREMENTS_CODE_TYPE_Y       = 11,
     GNSS_MEASUREMENTS_CODE_TYPE_Z       = 12,
     GNSS_MEASUREMENTS_CODE_TYPE_N       = 13,
+    GNSS_MEASUREMENTS_CODE_TYPE_D       = 14,
+    GNSS_MEASUREMENTS_CODE_TYPE_E       = 15,
     GNSS_MEASUREMENTS_CODE_TYPE_OTHER   = 255,
-} GnssMeasurementsCodeType;
+};
 
 typedef uint32_t GnssMeasurementsDataFlagsMask;
-typedef enum {
+enum GnssMeasurementsDataFlagsBits {
     GNSS_MEASUREMENTS_DATA_SV_ID_BIT                        = (1<<0),
     GNSS_MEASUREMENTS_DATA_SV_TYPE_BIT                      = (1<<1),
     GNSS_MEASUREMENTS_DATA_STATE_BIT                        = (1<<2),
@@ -708,10 +783,14 @@ typedef enum {
     GNSS_MEASUREMENTS_DATA_SATELLITE_PVT_BIT                = (1<<23),
     GNSS_MEASUREMENTS_DATA_CORRELATION_VECTOR_BIT           = (1<<24),
     GNSS_MEASUREMENTS_DATA_GNSS_SIGNAL_TYPE_BIT             = (1<<25),
-} GnssMeasurementsDataFlagsBits;
+    GNSS_MEASUREMENTS_DATA_GLO_FREQUENCY_BIT                = (1<<26),
+    GNSS_MEASUREMENTS_DATA_BASEBAND_CARRIER_TO_NOISE_BIT    = (1<<27),
+    GNSS_MEASUREMENTS_DATA_MEAS_CODE_TYPE_BIT               = (1<<28),
+    GNSS_MEASUREMENTS_DATA_OTHER_MEAS_CODE_TYPE_BIT         = (1<<29),
+};
 
 typedef uint32_t GnssMeasurementsStateMask;
-typedef enum {
+enum GnssMeasurementsStateBits {
     GNSS_MEASUREMENTS_STATE_UNKNOWN_BIT               = 0,
     GNSS_MEASUREMENTS_STATE_CODE_LOCK_BIT             = (1<<0),
     GNSS_MEASUREMENTS_STATE_BIT_SYNC_BIT              = (1<<1),
@@ -730,25 +809,25 @@ typedef enum {
     GNSS_MEASUREMENTS_STATE_TOW_KNOWN_BIT             = (1<<14),
     GNSS_MEASUREMENTS_STATE_GLO_TOD_KNOWN_BIT         = (1<<15),
     GNSS_MEASUREMENTS_STATE_2ND_CODE_LOCK_BIT         = (1<<16),
-} GnssMeasurementsStateBits;
+};
 
 typedef uint16_t GnssSingleSatCorrectionMask;
-typedef enum {
+enum GnssSingleSatCorrectionBits {
     GNSS_MEAS_CORR_UNKNOWN_BIT                     = 0,
     GNSS_MEAS_CORR_HAS_SAT_IS_LOS_PROBABILITY_BIT  = (1 << 0),
     GNSS_MEAS_CORR_HAS_EXCESS_PATH_LENGTH_BIT      = (1 << 1),
     GNSS_MEAS_CORR_HAS_EXCESS_PATH_LENGTH_UNC_BIT  = (1 << 2),
     GNSS_MEAS_CORR_HAS_REFLECTING_PLANE_BIT        = (1 << 3),
-} GnssSingleSatCorrectionBits;
+};
 
-typedef enum {
+enum GnssMeasurementsMultipathIndicator {
     GNSS_MEASUREMENTS_MULTIPATH_INDICATOR_UNKNOWN = 0,
     GNSS_MEASUREMENTS_MULTIPATH_INDICATOR_PRESENT,
     GNSS_MEASUREMENTS_MULTIPATH_INDICATOR_NOT_PRESENT,
-} GnssMeasurementsMultipathIndicator;
+};
 
 typedef uint32_t GnssMeasurementsClockFlagsMask;
-typedef enum {
+enum GnssMeasurementsClockFlagsBits {
     GNSS_MEASUREMENTS_CLOCK_FLAGS_LEAP_SECOND_BIT                  = (1<<0),
     GNSS_MEASUREMENTS_CLOCK_FLAGS_TIME_BIT                         = (1<<1),
     GNSS_MEASUREMENTS_CLOCK_FLAGS_TIME_UNCERTAINTY_BIT             = (1<<2),
@@ -759,10 +838,13 @@ typedef enum {
     GNSS_MEASUREMENTS_CLOCK_FLAGS_DRIFT_UNCERTAINTY_BIT            = (1<<7),
     GNSS_MEASUREMENTS_CLOCK_FLAGS_HW_CLOCK_DISCONTINUITY_COUNT_BIT = (1<<8),
     GNSS_MEASUREMENTS_CLOCK_FLAGS_ELAPSED_REAL_TIME_BIT            = (1<<9),
-} GnssMeasurementsClockFlagsBits;
+    GNSS_MEASUREMENTS_CLOCK_FLAGS_ELAPSED_REAL_TIME_UNC_BIT        = (1<<10),
+    GNSS_MEASUREMENTS_CLOCK_FLAGS_ELAPSED_GPTP_TIME_BIT            = (1<<11),
+    GNSS_MEASUREMENTS_CLOCK_FLAGS_ELAPSED_GPTP_TIME_UNC_BIT        = (1<<12),
+};
 
 typedef uint32_t GnssAidingDataSvMask;
-typedef enum {
+enum GnssAidingDataSvBits {
     GNSS_AIDING_DATA_SV_EPHEMERIS_BIT    = (1<<0), // ephemeris
     GNSS_AIDING_DATA_SV_ALMANAC_BIT      = (1<<1), // almanac
     GNSS_AIDING_DATA_SV_HEALTH_BIT       = (1<<2), // health
@@ -773,13 +855,13 @@ typedef enum {
     GNSS_AIDING_DATA_SV_SA_DATA_BIT      = (1<<7), // sensitivity assistance data
     GNSS_AIDING_DATA_SV_NO_EXIST_BIT     = (1<<8), // SV does not exist
     GNSS_AIDING_DATA_SV_IONOSPHERE_BIT   = (1<<9), // ionosphere correction
-    GNSS_AIDING_DATA_SV_TIME_BIT         = (1<<10),// reset satellite time
-    GNSS_AIDING_DATA_SV_MB_DATA          = (1<<11),// delete multiband data
-    GNSS_AIDING_DATA_SV_POLY_BIT         = (1<<12),// poly
-} GnssAidingDataSvBits;
+    GNSS_AIDING_DATA_SV_TIME_BIT         = (1<<10), // reset satellite time
+    GNSS_AIDING_DATA_SV_MB_DATA          = (1<<11), // delete multiband data
+    GNSS_AIDING_DATA_SV_POLY_BIT         = (1<<12), // poly
+};
 
 typedef uint32_t GnssAidingDataSvTypeMask;
-typedef enum {
+enum GnssAidingDataSvTypeBits {
     GNSS_AIDING_DATA_SV_TYPE_GPS_BIT      = (1<<0),
     GNSS_AIDING_DATA_SV_TYPE_GLONASS_BIT  = (1<<1),
     GNSS_AIDING_DATA_SV_TYPE_QZSS_BIT     = (1<<2),
@@ -787,12 +869,12 @@ typedef enum {
     GNSS_AIDING_DATA_SV_TYPE_GALILEO_BIT  = (1<<4),
     GNSS_AIDING_DATA_SV_TYPE_NAVIC_BIT    = (1<<5),
     GNSS_AIDING_DATA_SV_TYPE_MAX          = (1<<6),
-} GnssAidingDataSvTypeBits;
+};
 #define GNSS_AIDING_DATA_SV_TYPE_MASK_ALL (GNSS_AIDING_DATA_SV_TYPE_MAX-1)
 
 /* Gnss constellation type mask */
 typedef uint16_t GnssConstellationTypeMask;
-typedef enum {
+enum GnssConstellationTypeBits {
     GNSS_CONSTELLATION_TYPE_GPS_BIT      = (1<<0),
     GNSS_CONSTELLATION_TYPE_GLONASS_BIT  = (1<<1),
     GNSS_CONSTELLATION_TYPE_QZSS_BIT     = (1<<2),
@@ -800,7 +882,7 @@ typedef enum {
     GNSS_CONSTELLATION_TYPE_GALILEO_BIT  = (1<<4),
     GNSS_CONSTELLATION_TYPE_SBAS_BIT     = (1<<5),
     GNSS_CONSTELLATION_TYPE_NAVIC_BIT    = (1<<6),
-} GnssConstellationTypeBits;
+};
 
 #define GNSS_CONSTELLATION_TYPE_MASK_ALL\
         (GNSS_CONSTELLATION_TYPE_GPS_BIT     | GNSS_CONSTELLATION_TYPE_GLONASS_BIT |\
@@ -810,7 +892,7 @@ typedef enum {
 
 /** GNSS Signal Type and RF Band */
 typedef uint32_t GnssSignalTypeMask;
-typedef enum {
+enum GnssSignalTypeBits {
     /** GPS L1CA Signal */
     GNSS_SIGNAL_GPS_L1CA            = (1<<0),
     /** GPS L1C Signal */
@@ -855,7 +937,13 @@ typedef enum {
     GNSS_SIGNAL_NAVIC_L5            = (1<<20),
     /** BEIDOU B2A_Q RF Band */
     GNSS_SIGNAL_BEIDOU_B2AQ         = (1<<21),
-} GnssSignalTypeBits;
+    /** BEIDOU B2B_I RF Band */
+    GNSS_SIGNAL_BEIDOU_B2BI         = (1<<22),
+    /** BEIDOU B2B_Q RF Band */
+    GNSS_SIGNAL_BEIDOU_B2BQ         = (1<<23),
+    /** NAVIC L1 RF Band */
+    GNSS_SIGNAL_NAVIC_L1            = (1<<24),
+};
 
 #define GNSS_SIGNAL_TYPE_MASK_ALL\
     (GNSS_SIGNAL_GPS_L1CA | GNSS_SIGNAL_GPS_L1C | GNSS_SIGNAL_GPS_L2 |\
@@ -864,10 +952,10 @@ typedef enum {
      GNSS_SIGNAL_BEIDOU_B1I | GNSS_SIGNAL_BEIDOU_B1C | GNSS_SIGNAL_BEIDOU_B2I|\
      GNSS_SIGNAL_BEIDOU_B2AI | GNSS_SIGNAL_QZSS_L1CA | GNSS_SIGNAL_QZSS_L1S |\
      GNSS_SIGNAL_QZSS_L2| GNSS_SIGNAL_QZSS_L5 | GNSS_SIGNAL_SBAS_L1 |\
-     GNSS_SIGNAL_NAVIC_L5 | GNSS_SIGNAL_BEIDOU_B2AQ)
+     GNSS_SIGNAL_NAVIC_L5 | GNSS_SIGNAL_BEIDOU_B2AQ | GNSS_SIGNAL_BEIDOU_B2BI |\
+     GNSS_SIGNAL_BEIDOU_B2BQ | GNSS_SIGNAL_NAVIC_L1)
 
-typedef enum
-{
+enum Gnss_LocSvSystemEnumType {
     GNSS_LOC_SV_SYSTEM_UNKNOWN                = 0,
     /** unknown sv system. */
     GNSS_LOC_SV_SYSTEM_MIN                    = 1,
@@ -888,9 +976,9 @@ typedef enum
     /**< NAVIC satellite. */
     GNSS_LOC_SV_SYSTEM_MAX                    = 7,
     /**< Max enum of valid SV system. */
-} Gnss_LocSvSystemEnumType;
+};
 
-typedef enum {
+enum Gnss_LocSignalEnumType {
     GNSS_LOC_SIGNAL_TYPE_GPS_L1CA = 0,          /**<  GPS L1CA Signal  */
     GNSS_LOC_SIGNAL_TYPE_GPS_L1C = 1,           /**<  GPS L1C Signal  */
     GNSS_LOC_SIGNAL_TYPE_GPS_L2C_L = 2,         /**<  GPS L2C_L RF Band  */
@@ -913,16 +1001,17 @@ typedef enum {
     GNSS_LOC_SIGNAL_TYPE_BEIDOU_B2A_Q = 19,     /**<  BEIDOU B2A_Q RF Band  */
     GNSS_LOC_SIGNAL_TYPE_BEIDOU_B2B_I = 20,     /**<  BeiDou B2B_I RF band (data) */
     GNSS_LOC_SIGNAL_TYPE_BEIDOU_B2B_Q = 21,     /**< BeiDou B2B_Q RF band (Pilot)*/
-    GNSS_LOC_MAX_NUMBER_OF_SIGNAL_TYPES = 22    /**<  Maximum number of signal types */
-} Gnss_LocSignalEnumType;
+    GNSS_LOC_SIGNAL_TYPE_NAVIC_L1 = 22,         /**<  NAVIC L1 RF Band */
+    GNSS_LOC_MAX_NUMBER_OF_SIGNAL_TYPES = 23    /**<  Maximum number of signal types */
+};
 
 typedef uint32_t PositioningEngineMask;
-typedef enum {
+enum PositioningEngineBits {
     STANDARD_POSITIONING_ENGINE = (1 << 0),
     DEAD_RECKONING_ENGINE       = (1 << 1),
     PRECISE_POSITIONING_ENGINE  = (1 << 2),
     VP_POSITIONING_ENGINE  = (1 << 3)
-} PositioningEngineBits;
+};
 #define POSITION_ENGINE_MASK_ALL \
         (STANDARD_POSITIONING_ENGINE|DEAD_RECKONING_ENGINE| \
         PRECISE_POSITIONING_ENGINE|VP_POSITIONING_ENGINE)
@@ -935,28 +1024,56 @@ enum LocEngineRunState {
     /** Request the position engine to be put into resume state.
      *  <br/> */
     LOC_ENGINE_RUN_STATE_RESUME   = 2,
+    /** Request the selected position engine to be put into pause state
+     *  while retaining of any useful state data. This engine run state
+     *  is currently applicable to QDR engine only. It is strongly advised
+     *  to link this state to a vehicle state in which the vehicle is expected
+     *  to be stationary at the time of invocation of API and subsequently, until
+     *  state is changed to Running. For QDR, transition out of PAUSE_RETAIN happens
+     *  when either the state is changed to RESUME state via same command OR when the
+     *  device taken through suspend/resume or reboot power-state cycles. <br/> */
+    LOC_ENGINE_RUN_STATE_PAUSE_RETAIN = 3,
+
 };
 
 typedef uint64_t GnssDataMask;
-typedef enum {
+enum GnssDataBits {
     // Jammer Indicator is available
-    GNSS_LOC_DATA_JAMMER_IND_BIT = (1ULL << 0),
+    GNSS_LOC_DATA_JAMMER_IND_BIT    = (1ULL << 0),
     // AGC is available
-    GNSS_LOC_DATA_AGC_BIT = (1ULL << 1)
-} GnssDataBits;
+    GNSS_LOC_DATA_AGC_BIT           = (1ULL << 1),
+    // AGC status for L1 band is available.
+    GNSS_LOC_DATA_AGC_STATUS_L1_BIT = (1ULL << 2),
+    // AGC status for L2 band is available.
+    GNSS_LOC_DATA_AGC_STATUS_L2_BIT = (1ULL << 3),
+    // AGC status for L5 band is available.
+    GNSS_LOC_DATA_AGC_STATUS_L5_BIT = (1ULL << 4),
+};
+
+/** Indicate RF Automatic Gain Control Status <br/>   */
+enum AgcStatus {
+    /**< AGC status is unknown <br/> */
+    AGC_STATUS_UNKNOWN                              = 0,
+    /**< AGC status is No saturation <br/> */
+    AGC_STATUS_NO_SATURATION                        = 1,
+    /**< AGC status is Front end gain maximum saturation <br/> */
+    AGC_STATUS_FRONT_END_GAIN_MAXIMUM_SATURATION    = 2,
+    /**< AGC status is Front end gain minimum saturation <br/> */
+    AGC_STATUS_FRONT_END_GAIN_MINIMUM_SATURATION    = 3,
+};
 
 typedef uint32_t GnssSystemTimeStructTypeFlags;
-typedef enum {
+enum GnssSystemTimeTypeBits {
     GNSS_SYSTEM_TIME_WEEK_VALID             = (1 << 0),
     GNSS_SYSTEM_TIME_WEEK_MS_VALID          = (1 << 1),
     GNSS_SYSTEM_CLK_TIME_BIAS_VALID         = (1 << 2),
     GNSS_SYSTEM_CLK_TIME_BIAS_UNC_VALID     = (1 << 3),
     GNSS_SYSTEM_REF_FCOUNT_VALID            = (1 << 4),
     GNSS_SYSTEM_NUM_CLOCK_RESETS_VALID      = (1 << 5)
-} GnssSystemTimeTypeBits;
+};
 
 typedef uint32_t GnssGloTimeStructTypeFlags;
-typedef enum {
+enum GnssGloTimeTypeBits {
     GNSS_CLO_DAYS_VALID                     = (1 << 0),
     GNSS_GLO_MSEC_VALID                     = (1 << 1),
     GNSS_GLO_CLK_TIME_BIAS_VALID            = (1 << 2),
@@ -964,42 +1081,42 @@ typedef enum {
     GNSS_GLO_REF_FCOUNT_VALID               = (1 << 4),
     GNSS_GLO_NUM_CLOCK_RESETS_VALID         = (1 << 5),
     GNSS_GLO_FOUR_YEAR_VALID                = (1 << 6)
-} GnssGloTimeTypeBits;
+};
 
-typedef struct {
+struct GnssAidingDataSv {
     GnssAidingDataSvMask svMask;         // bitwise OR of GnssAidingDataSvBits
     GnssAidingDataSvTypeMask svTypeMask; // bitwise OR of GnssAidingDataSvTypeBits
-} GnssAidingDataSv;
+};
 
 typedef uint32_t GnssAidingDataCommonMask;
-typedef enum {
+enum GnssAidingDataCommonBits {
     GNSS_AIDING_DATA_COMMON_POSITION_BIT      = (1<<0), // position estimate
     GNSS_AIDING_DATA_COMMON_TIME_BIT          = (1<<1), // reset all clock values
     GNSS_AIDING_DATA_COMMON_UTC_BIT           = (1<<2), // UTC estimate
     GNSS_AIDING_DATA_COMMON_RTI_BIT           = (1<<3), // RTI
     GNSS_AIDING_DATA_COMMON_FREQ_BIAS_EST_BIT = (1<<4), // frequency bias estimate
     GNSS_AIDING_DATA_COMMON_CELLDB_BIT        = (1<<5), // all celldb info
-} GnssAidingDataCommonBits;
+};
 
-typedef struct {
+struct GnssAidingDataCommon {
     GnssAidingDataCommonMask mask; // bitwise OR of GnssAidingDataCommonBits
-} GnssAidingDataCommon;
+};
 
 typedef uint32_t DrEngineAidingDataMask;
-typedef enum {
+enum DrEngineAidingDataBits {
     DR_ENGINE_AIDING_DATA_CALIBRATION_BIT = (1<<0), // Calibration data for DRE engine
-} DrEngineAidingDataBits;
+};
 
-typedef struct {
+struct GnssAidingData {
     bool deleteAll;              // if true, delete all aiding data and ignore other params
     GnssAidingDataSv sv;         // SV specific aiding data
     GnssAidingDataCommon common; // common aiding data
     DrEngineAidingDataMask dreAidingDataMask;// aiding data mask for dr engine
     PositioningEngineMask posEngineMask;     // engines to perform the delete operation on.
-} GnssAidingData;
+};
 
-typedef uint16_t DrCalibrationStatusMask;
-typedef enum {
+typedef uint32_t DrCalibrationStatusMask;
+enum DrCalibrationStatusBits {
     // Indicate that roll calibration is needed. Need to take more turns on level ground
     DR_ROLL_CALIBRATION_NEEDED  = (1<<0),
     // Indicate that pitch calibration is needed. Need to take more turns on level ground
@@ -1009,10 +1126,34 @@ typedef enum {
     // Indicate that odo calibration is needed. Need to accelerate in a straight line
     DR_ODO_CALIBRATION_NEEDED   = (1<<3),
     // Indicate that gyro calibration is needed. Need to take more turns on level ground
-    DR_GYRO_CALIBRATION_NEEDED  = (1<<4)
-} DrCalibrationStatusBits;
+    DR_GYRO_CALIBRATION_NEEDED  = (1<<4),
+    // Lot more turns on level ground needed
+    DR_TURN_CALIBRATION_LOW     = (1<<5),
+    // Some more turns on level ground needed
+    DR_TURN_CALIBRATION_MEDIUM  = (1<<6),
+    // Sufficient turns on level ground observed
+    DR_TURN_CALIBRATION_HIGH  =   (1<<7),
+    // Lot more accelerations in straight line needed
+    DR_LINEAR_ACCEL_CALIBRATION_LOW  = (1<<8),
+    // Some more accelerations in straight line needed
+    DR_LINEAR_ACCEL_CALIBRATION_MEDIUM  =  (1<<9),
+    // Sufficient acceleration events in straight line observed
+    DR_LINEAR_ACCEL_CALIBRATION_HIGH  =    (1<<10),
+    // Lot more motion in straight line needed
+    DR_LINEAR_MOTION_CALIBRATION_LOW  =    (1<<11),
+    // Some more motion in straight line needed
+    DR_LINEAR_MOTION_CALIBRATION_MEDIUM  = (1<<12),
+    // Sufficient motion events in straight line observed
+    DR_LINEAR_MOTION_CALIBRATION_HIGH  =   (1<<13),
+    // Lot more stationary events on level ground needed
+    DR_STATIC_CALIBRATION_LOW  =           (1<<14),
+    // Some more stationary events on level ground needed
+    DR_STATIC_CALIBRATION_MEDIUM  =        (1<<15),
+    // Sufficient stationary events on level ground observed
+    DR_STATIC_CALIBRATION_HIGH  =          (1<<16)
+};
 
-typedef enum {
+enum LocationQualityType {
     /**< Position calculated by standard alone postion engine. */
     LOCATION_STANDALONE_QUALITY_TYPE = 0,
     /**< Position calculated by using DGNSS technology. */
@@ -1021,12 +1162,18 @@ typedef enum {
     LOCATION_FLOAT_QUALITY_TYPE = 2,
     /**< Position accuracy in RTK or PPP fixed performance. */
     LOCATION_FIXED_QUALITY_TYPE = 3,
-} LocationQualityType;
+};
 
+enum loc_sess_status {
+    LOC_SESS_SUCCESS,
+    LOC_SESS_INTERMEDIATE,
+    LOC_SESS_FAILURE
+};
 
-typedef struct {
+struct Location {
     uint32_t size;           // set to sizeof(Location)
     LocationFlagsMask flags; // bitwise OR of LocationFlagsBits to mark which params are valid
+    loc_sess_status sessionStatus; // location session status
     uint64_t timestamp;      // UTC timestamp for location fix, milliseconds since January 1, 1970
     double latitude;         // in degrees
     double longitude;        // in degrees
@@ -1047,16 +1194,22 @@ typedef struct {
     uint64_t elapsedRealTime;    // in ns
     uint64_t elapsedRealTimeUnc; // in ns
     LocationQualityType qualityType; // position quality
-} Location;
+    float timeUncMs;             // Time uncertainty in milliseconds
+                                 // SPE report: confidence level is 99%
+                                 // Other engine report: confidence not unspecified
+    uint64_t systemTick;        // System Tick at GPS Time
+    uint64_t elapsedgPTPTime;    // GPTP time field in ns
+    uint64_t elapsedgPTPTimeUnc; // GPTP time Unc
+};
 
-typedef enum {
+enum LocReqEngineTypeMask {
     LOC_REQ_ENGINE_FUSED_BIT = (1<<0),
     LOC_REQ_ENGINE_SPE_BIT   = (1<<1),
     LOC_REQ_ENGINE_PPE_BIT   = (1<<2),
     LOC_REQ_ENGINE_VPE_BIT   = (1<<3)
-} LocReqEngineTypeMask;
+};
 
-typedef enum {
+enum LocOutputEngineType {
     LOC_OUTPUT_ENGINE_FUSED   = 0,
     /** This is the GNSS fix from modem */
     LOC_OUTPUT_ENGINE_SPE     = 1,
@@ -1064,7 +1217,13 @@ typedef enum {
     LOC_OUTPUT_ENGINE_PPE     = 2,
     LOC_OUTPUT_ENGINE_VPE = 3,
     LOC_OUTPUT_ENGINE_COUNT,
-} LocOutputEngineType;
+};
+
+enum FixQualityLevel {
+    QUALITY_HIGH_ACCU_FIX_ONLY = 0,       /* Only allow valid fix with high accuracy */
+    QUALITY_ANY_VALID_FIX,                /* Allow fix with any accuracy, like intermediate fix */
+    QUALITY_ANY_OR_FAILED_FIX,            /* Allow fix of any type, even failed fix */
+};
 
 struct LocationOptions {
     uint32_t size;          // set to sizeof(LocationOptions)
@@ -1076,49 +1235,81 @@ struct LocationOptions {
     //  if engine hub is running, this will be fused fix,
     //  if engine hub is not running, this will be SPE fix
     LocReqEngineTypeMask locReqEngTypeMask;
+    FixQualityLevel qualityLevelAccepted; /* Send through position reports with which accuracy. */
 
     inline LocationOptions() :
             size(0), minInterval(0), minDistance(0), mode(GNSS_SUPL_MODE_STANDALONE),
-            locReqEngTypeMask((LocReqEngineTypeMask)0) {}
+            locReqEngTypeMask((LocReqEngineTypeMask)0),
+            qualityLevelAccepted(QUALITY_HIGH_ACCU_FIX_ONLY) {}
 };
 
-typedef enum {
-    GNSS_POWER_MODE_INVALID = 0,
-    GNSS_POWER_MODE_M1,  /* Improved Accuracy Mode */
-    GNSS_POWER_MODE_M2,  /* Normal Mode */
-    GNSS_POWER_MODE_M3,  /* Background Mode */
-    GNSS_POWER_MODE_M4,  /* Background Mode */
-    GNSS_POWER_MODE_M5   /* Background Mode */
-} GnssPowerMode;
+enum GnssPowerMode {
+    GNSS_POWER_MODE_M1 = 1,  /* Improved Accuracy Mode */
+    GNSS_POWER_MODE_M2,      /* Normal Mode */
+    GNSS_POWER_MODE_M3,      /* Background Mode */
+    GNSS_POWER_MODE_M4,      /* Background Mode */
+    GNSS_POWER_MODE_M5,      /* Background Mode */
+    GNSS_POWER_MODE_DEFAULT = GNSS_POWER_MODE_M2
+};
 
-typedef enum {
-    QUALITY_HIGH_ACCU_FIX_ONLY = 0,       /* Only allow valid fix with high accuracy */
-    QUALITY_ANY_VALID_FIX,                /* Allow fix with any accuracy, like intermediate fix */
-    QUALITY_ANY_OR_FAILED_FIX,            /* Allow fix of any type, even failed fix */
-} FixQualityLevel;
+enum SpecialReqType {
+    SPECIAL_REQ_INVALID = 0,
+    SPECIAL_REQ_SHORT_CODE,   /* Short code */
+};
 
 struct TrackingOptions : LocationOptions {
     GnssPowerMode powerMode; /* Power Mode to be used for time based tracking
                                 sessions */
     uint32_t tbm;  /* Time interval between measurements specified in millis.
                       Applicable to background power modes */
-    FixQualityLevel qualityLevelAccepted; /* Send through position reports with which accuracy. */
+    SpecialReqType specialReq; /* Special Request type */
 
     inline TrackingOptions() :
-            LocationOptions(), powerMode(GNSS_POWER_MODE_INVALID), tbm(0),
-            qualityLevelAccepted(QUALITY_HIGH_ACCU_FIX_ONLY) {}
-    inline TrackingOptions(uint32_t s, GnssPowerMode m, uint32_t t) :
-            LocationOptions(), powerMode(m), tbm(t),
-            qualityLevelAccepted(QUALITY_HIGH_ACCU_FIX_ONLY) { LocationOptions::size = s; }
+            LocationOptions(), powerMode(GNSS_POWER_MODE_DEFAULT), tbm(0),
+            specialReq(SPECIAL_REQ_INVALID){}
     inline TrackingOptions(const LocationOptions& options) :
-            LocationOptions(options), powerMode(GNSS_POWER_MODE_INVALID), tbm(0),
-            qualityLevelAccepted(QUALITY_HIGH_ACCU_FIX_ONLY) {}
+            LocationOptions(options), powerMode(GNSS_POWER_MODE_DEFAULT), tbm(0),
+            specialReq(SPECIAL_REQ_INVALID){}
+    inline bool equalsInTimeBasedRequest(const TrackingOptions& other) const {
+        return minInterval == other.minInterval && powerMode == other.powerMode &&
+               qualityLevelAccepted == other.qualityLevelAccepted;
+    }
+    inline bool multiplexWithForTimeBasedRequest(const TrackingOptions& other) {
+        bool updated = false;
+        if (other.minInterval < minInterval) {
+            updated = true;
+            if (minInterval % other.minInterval != 0) {
+                minInterval = MIN_GNSS_TRACKING_INTERVAL;
+            } else {
+                minInterval = other.minInterval;
+            }
+        } else if (other.minInterval > minInterval) {
+            // Will update option to true only if tbf's are not multiple of each other
+            if (other.minInterval % minInterval != 0) {
+                updated = true;
+                minInterval = MIN_GNSS_TRACKING_INTERVAL;
+            }
+        }
+        if (other.powerMode < powerMode) {
+            updated = true;
+            powerMode = other.powerMode;
+        }
+        if (other.tbm < tbm) {
+            updated = true;
+            tbm = other.tbm;
+        }
+        if (other.qualityLevelAccepted > qualityLevelAccepted) {
+            qualityLevelAccepted = other.qualityLevelAccepted;
+        }
+        return updated;
+    }
     inline void setLocationOptions(const LocationOptions& options) {
         size = sizeof(TrackingOptions);
         minInterval = options.minInterval;
         minDistance = options.minDistance;
         mode = options.mode;
         locReqEngTypeMask = options.locReqEngTypeMask;
+        qualityLevelAccepted = options.qualityLevelAccepted;
     }
     inline LocationOptions getLocationOptions() {
         LocationOptions locOption;
@@ -1127,6 +1318,7 @@ struct TrackingOptions : LocationOptions {
         locOption.minInterval = minInterval;
         locOption.mode = mode;
         locOption.locReqEngTypeMask = locReqEngTypeMask;
+        locOption.qualityLevelAccepted = qualityLevelAccepted;
         return locOption;
     }
 };
@@ -1147,51 +1339,51 @@ struct BatchingOptions : LocationOptions {
     }
 };
 
-typedef struct {
+struct BatchingStatusInfo {
     uint32_t size;
     BatchingStatus batchingStatus;
-} BatchingStatusInfo;
+};
 
-typedef struct {
+struct GeofenceOption {
     uint32_t size;                          // set to sizeof(GeofenceOption)
     GeofenceBreachTypeMask breachTypeMask;  // bitwise OR of GeofenceBreachTypeBits
     uint32_t responsiveness;                // in milliseconds
     uint32_t dwellTime;                     // in seconds
     GeofenceConfidence confidence;          // confidence of breach event
-} GeofenceOption;
+};
 
-typedef struct {
+struct GeofenceInfo {
     uint32_t size;    // set to sizeof(GeofenceInfo)
     double latitude;  // in degrees
     double longitude; // in degrees
     double radius;    // in meters
-} GeofenceInfo;
+};
 
-typedef struct {
+struct GeofenceBreachNotification {
     uint32_t size;             // set to sizeof(GeofenceBreachNotification)
     uint32_t count;            // number of ids in array
     uint32_t* ids;           // array of ids that have breached
     Location location;       // location associated with breach
     GeofenceBreachType type; // type of breach
     uint64_t timestamp;      // timestamp of breach
-} GeofenceBreachNotification;
+};
 
-typedef struct {
+struct GeofenceStatusNotification {
     uint32_t size;                       // set to sizeof(GeofenceBreachNotification)
     GeofenceStatusAvailable available; // GEOFENCE_STATUS_AVAILABILE_NO/_YES
     LocationTechnologyType techType;   // GNSS
-} GeofenceStatusNotification;
+};
 
-typedef struct {
+struct GnssLocationSvUsedInPosition {
     uint64_t gpsSvUsedIdsMask;
     uint64_t gloSvUsedIdsMask;
     uint64_t galSvUsedIdsMask;
     uint64_t bdsSvUsedIdsMask;
     uint64_t qzssSvUsedIdsMask;
     uint64_t navicSvUsedIdsMask;
-} GnssLocationSvUsedInPosition;
+};
 
-typedef struct {
+struct GnssMeasUsageInfo {
     /** GnssSignalType mask */
     GnssSignalTypeMask gnssSignalType;
    /** Specifies GNSS Constellation Type */
@@ -1202,12 +1394,12 @@ typedef struct {
      *  For GLONASS:  When slot-number to SV ID mapping is unknown, set as 255.
      */
     uint16_t gnssSvId;
-} GnssMeasUsageInfo;
+};
 
 /** @struct
     Body Frame parameters
 */
-typedef struct {
+struct GnssLocationPositionDynamics {
     GnssLocationPosDataMask bodyFrameDataMask; // Contains Body frame LocPosDataMask bits
     float longAccel;                           // Forward Acceleration in body frame (m/s2)
     float latAccel;                            // Sideward Acceleration in body frame (m/s2)
@@ -1224,9 +1416,9 @@ typedef struct {
                           // Confidence level is at 68%
     float pitchUnc;       // Uncertainty of Body pitch
                           // Confidence level is at 68%
-} GnssLocationPositionDynamics;
+};
 
-typedef struct {
+struct GnssLocationPositionDynamicsExt {
     GnssLocationPosDataMaskExt bodyFrameDataMask; // Contains Ext Body frame LocPosDataMask bits
     float pitchRate;      // Body pitch rate (Radians/second)
     float pitchRateUnc;   // Uncertainty of pitch rate (Radians/second)
@@ -1240,9 +1432,9 @@ typedef struct {
     float yaw;            // Yaw of body frame. Clockwise positive (radian)
     float yawUnc;         // Uncertainty of Yaw (radian)
                           // Confidence level is at 68%
-} GnssLocationPositionDynamicsExt;
+};
 
-typedef struct {
+struct GnssSystemTimeStructType {
     /** Validity mask for below fields */
     GnssSystemTimeStructTypeFlags validityMask;
     /** Extended week number at reference tick.
@@ -1276,11 +1468,26 @@ typedef struct {
          due to possible discontinuities.
          Unit: Millisecond */
     uint32_t refFCount;
-    /** Number of clock resets/discontinuities detected, affecting the local hardware counter value. */
+    /** Number of clock resets/discontinuities detected,
+        affecting the local hardware counter value. */
     uint32_t numClockResets;
-} GnssSystemTimeStructType;
 
-typedef struct {
+    inline bool hasAccurateTime() const {
+        bool retVal = false;
+        if ((validityMask & GNSS_SYSTEM_TIME_WEEK_VALID) &&
+                // 65535 GPS week from modem means unknown
+                (systemWeek != UNKNOWN_GPS_WEEK_NUM) &&
+                (validityMask & GNSS_SYSTEM_TIME_WEEK_MS_VALID) &&
+                (validityMask & GNSS_SYSTEM_CLK_TIME_BIAS_UNC_VALID) &&
+                (systemClkTimeUncMs != 0.0f) &&
+                (systemClkTimeUncMs < REAL_TIME_ESTIMATOR_TIME_UNC_THRESHOLD_MSEC)) {
+            retVal = true;
+        }
+        return retVal;
+    }
+};
+
+struct GnssGloTimeStructType {
     /** GLONASS day number in four years. Refer to GLONASS ICD.
         Applicable only for GLONASS and shall be ignored for other constellations.
         If unknown shall be set to 65535 */
@@ -1303,13 +1510,14 @@ typedef struct {
         due to possible discontinuities.
         Unit: Millisecond */
     uint32_t  refFCount;
-    /** Number of clock resets/discontinuities detected, affecting the local hardware counter value. */
+    /** Number of clock resets/discontinuities detected,
+        affecting the local hardware counter value. */
     uint32_t numClockResets;
     /** GLONASS four year number from 1996. Refer to GLONASS ICD.
         Applicable only for GLONASS and shall be ignored for other constellations.
         If unknown shall be set to 255 */
     uint8_t gloFourYear;
-} GnssGloTimeStructType;
+};
 
 typedef union {
     GnssSystemTimeStructType gpsSystemTime;
@@ -1319,8 +1527,9 @@ typedef union {
     GnssGloTimeStructType    gloSystemTime;
     GnssSystemTimeStructType navicSystemTime;
 } SystemTimeStructUnion;
+
     /** Time applicability of PVT report */
-typedef struct {
+struct GnssSystemTime {
     /** Specifies GNSS system time reported. Mandatory field */
     Gnss_LocSvSystemEnumType gnssSystemTimeSrc;
     /** Reporting of GPS system time is recommended.
@@ -1329,25 +1538,46 @@ typedef struct {
       Mandatory field
      */
     SystemTimeStructUnion u;
-} GnssSystemTime;
+
+    inline bool hasAccurateGpsTime() const {
+        bool retVal = false;
+        if ((gnssSystemTimeSrc == GNSS_LOC_SV_SYSTEM_GPS) &&
+                (u.gpsSystemTime.hasAccurateTime() == true)) {
+            retVal = true;
+        }
+        return retVal;
+    }
+
+};
 
 typedef uint32_t DrSolutionStatusMask;
-#define VEHICLE_SENSOR_SPEED_INPUT_DETECTED (1<<0)
-#define VEHICLE_SENSOR_SPEED_INPUT_USED     (1<<1)
+#define VEHICLE_SENSOR_SPEED_INPUT_DETECTED    (1<<0)
+#define VEHICLE_SENSOR_SPEED_INPUT_USED        (1<<1)
+#define DRE_WARNING_UNCALIBRATED               (1<<2)
+#define DRE_WARNING_GNSS_QUALITY_INSUFFICIENT  (1<<3)
+#define DRE_WARNING_FERRY_DETECTED             (1<<4)
+#define DRE_ERROR_6DOF_SENSOR_UNAVAILABLE      (1<<5)
+#define DRE_ERROR_VEHICLE_SPEED_UNAVAILABLE    (1<<6)
+#define DRE_ERROR_GNSS_EPH_UNAVAILABLE         (1<<7)
+#define DRE_ERROR_GNSS_MEAS_UNAVAILABLE        (1<<8)
+#define DRE_WARNING_INIT_POSITION_INVALID      (1<<9)
+#define DRE_WARNING_INIT_POSITION_UNRELIABLE   (1<<10)
+#define DRE_WARNING_POSITON_UNRELIABLE         (1<<11)
+#define DRE_ERROR_GENERIC                      (1<<12)
+#define DRE_WARNING_SENSOR_TEMP_OUT_OF_RANGE   (1<<13)
+#define DRE_WARNING_USER_DYNAMICS_INSUFFICIENT (1<<14)
+#define DRE_WARNING_FACTORY_DATA_INCONSISTENT  (1<<15)
+#define DRE_WARNING_MMF_UNAVAILABLE            (1<<16)
+#define DRE_WARNING_MMF_NOT_USABLE             (1<<17)
 
-typedef struct {
+
+struct LLAInfo {
     double latitude;  // in degree
     double longitude; // in degree
     float altitude;  // altitude wrt to ellipsoid
-} LLAInfo;
-
-enum loc_sess_status {
-    LOC_SESS_SUCCESS,
-    LOC_SESS_INTERMEDIATE,
-    LOC_SESS_FAILURE
 };
 
-typedef struct {
+struct GnssLocationInfoNotification {
     uint32_t size;                      // set to sizeof(GnssLocationInfo)
     Location location;                  // basic locaiton info, latitude, longitude, and etc
     GnssLocationInfoFlagMask flags;     // bitwise OR of GnssLocationInfoBits for param validity
@@ -1384,9 +1614,6 @@ typedef struct {
     uint8_t numOfMeasReceived; // Number of measurements received for use in fix.
     GnssMeasUsageInfo measUsageInfo[GNSS_SV_MAX]; // GNSS Measurement Usage info
     uint8_t leapSeconds;                          // leap second
-    float timeUncMs;                              // Time uncertainty in milliseconds
-                                                  // SPE report: confidence level is 99%
-                                                  // Other engine report: confidence not unspecified
     uint8_t calibrationConfidence;                // Sensor calibration confidence percent,
                                                   // in range of [0, 100]
     DrCalibrationStatusMask calibrationStatus;    // Sensor calibration status
@@ -1414,9 +1641,68 @@ typedef struct {
     bool altitudeAssumed;
     // location session status
     loc_sess_status sessionStatus;
-} GnssLocationInfoNotification;
+    // integrity risk used for protection level parameters.
+    uint32_t integrityRiskUsed;
+    // along-track protection level
+    float    protectAlongTrack;
+    // cross-track protection level
+    float    protectCrossTrack;
+    // vertical component protection level
+    float    protectVertical;
+    // number of dgnss station id that is valid in dgnssStationId array
+    uint32_t  numOfDgnssStationId;
+    // List of DGNSS station IDs providing corrections.
+    //   Range:
+    //   - SBAS --  120 to 158 and 183 to 191.
+    //   - Monitoring station -- 1000-2023 (Station ID biased by 1000).
+    //   - Other values reserved.
+    uint16_t dgnssStationId[DGNSS_STATION_ID_MAX];
+    // Distance between the base station and the receiver
+    // Unit - meters
+    double baseLineLength;
+    // Difference in time between the fix timestamp using the
+    // correction and the time of the correction
+    // Unit - milli-seconds
+    uint64_t ageMsecOfCorrections;
+    /** Uncertainty for the GNSS leap second.
+     *  Units -- Seconds */
+    uint8_t leapSecondsUnc;
+    /** Current reporting interval. Intervals at which GNSS engine is
+     *  delivering position reports. It is minimum of all clients
+     *  requesting position reports.
+     *  Unit - milli-seconds*/
+    uint32_t posReportingInterval;
+    /** Must be set to # of elements in extendedData */
+    uint32_t extendedDataLen;
+    /**   Data blob payload  */
+    uint8_t extendedData[LDT_LOC_OEM_DRE_DATA_BLOB_SIZE];
+};
 
-typedef struct {
+// Indicate the API that is called to generate the location report
+enum LocReportTriggerType {
+    LOC_REPORT_TRIGGER_UNSPECIFIED               = 0,
+    LOC_REPORT_TRIGGER_SIMPLE_TRACKING_SESSION   = 1,
+    LOC_REPORT_TRIGGER_DETAILED_TRACKING_SESSION = 2,
+    LOC_REPORT_TRIGGER_ENGINE_TRACKING_SESSION   = 3,
+    LOC_REPORT_TRIGGER_SINGLE_TERRESTRIAL_FIX    = 4,
+    LOC_REPORT_TRIGGER_SINGLE_FIX                = 5,
+    LOC_REPORT_TRIGGER_TRIP_BATCHING_SESSION     = 6,
+    LOC_REPORT_TRIGGER_ROUTINE_BATCHING_SESSION  = 7,
+    LOC_REPORT_TRIGGER_GEOFENCE_SESSION          = 8,
+};
+
+struct DiagLocationInfoExt {
+    LocationCapabilitiesMask capMask;
+    uint64_t sessionStartBootTimestampNs;
+    LocReportTriggerType reportTriggerType;
+    inline DiagLocationInfoExt(LocationCapabilitiesMask inCapMask,
+                               uint64_t inSessionStartBootTimestampNs,
+                               LocReportTriggerType inReportTriggerType) :
+            capMask(inCapMask), sessionStartBootTimestampNs(inSessionStartBootTimestampNs),
+            reportTriggerType(inReportTriggerType) {}
+};
+
+struct GnssNiNotification {
     uint32_t size;                           // set to sizeof(GnssNiNotification)
     GnssNiType type;                       // type of NI (Voice, SUPL, Control Plane)
     GnssNiOptionsMask options;             // bitwise OR of GnssNiOptionsBits
@@ -1427,7 +1713,7 @@ typedef struct {
     char message[GNSS_NI_MESSAGE_ID_MAX];  // the message to show user
     GnssNiEncodingType messageEncoding;    // the encoding type for message
     char extras[GNSS_NI_MESSAGE_ID_MAX];
-} GnssNiNotification;
+};
 
 // carrier frequency of the signal tracked
 #define GPS_L1CA_CARRIER_FREQUENCY      (1575420000.0)
@@ -1444,14 +1730,17 @@ typedef struct {
 #define BEIDOU_B2_I_CARRIER_FREQUENCY   (1207140000.0)
 #define BEIDOU_B2A_I_CARRIER_FREQUENCY  (1176450000.0)
 #define BEIDOU_B2A_Q_CARRIER_FREQUENCY  (1176450000.0)
+#define BEIDOU_B2B_I_CARRIER_FREQUENCY  (1207140000.0)
+#define BEIDOU_B2B_Q_CARRIER_FREQUENCY  (1207140000.0)
 #define QZSS_L1CA_CARRIER_FREQUENCY     (1575420000.0)
 #define QZSS_L1S_CARRIER_FREQUENCY      (1575420000.0)
 #define QZSS_L2C_L_CARRIER_FREQUENCY    (1227600000.0)
 #define QZSS_L5_Q_CARRIER_FREQUENCY     (1176450000.0)
 #define SBAS_L1_CA_CARRIER_FREQUENCY    (1575420000.0)
 #define NAVIC_L5_CARRIER_FREQUENCY      (1176450000.0)
+#define NAVIC_L1_CARRIER_FREQUENCY      (1575420000.0)
 
-typedef struct {
+struct GnssSv {
     uint32_t size;       // set to sizeof(GnssSv)
     // Unique SV Identifier.
     // SV Range for supported constellation is specified as below:
@@ -1461,7 +1750,7 @@ typedef struct {
     //    - For QZSS:    193 to 197
     //    - For BDS:     201 to 263
     //    - For GAL:     301 to 336
-    //    - For NAVIC:   401 to 414
+    //    - For NAVIC:   401 to 420
     uint16_t svId;
     GnssSvType type;   // type of SV (GPS, SBAS, GLONASS, QZSS, BEIDOU, GALILEO, NAVIC)
     float cN0Dbhz;     // signal strength
@@ -1472,7 +1761,7 @@ typedef struct {
     GnssSignalTypeMask gnssSignalTypeMask; // Specifies GNSS signal type
     double basebandCarrierToNoiseDbHz; // baseband signal strength
     uint16_t  gloFrequency; // GLONASS Frequency channel number
-} GnssSv;
+};
 
 struct GnssConfigSetAssistanceServer {
     uint32_t size;             // set to sizeof(GnssConfigSetAssistanceServer)
@@ -1492,42 +1781,55 @@ struct GnssConfigSetAssistanceServer {
 };
 
 typedef uint32_t GnssSatellitePvtFlagsMask;
-typedef enum {
+enum GnssSatellitePvtFlagsBits {
     GNSS_SATELLITE_PVT_POSITION_VELOCITY_CLOCK_INFO_BIT = (1 << 0),
     GNSS_SATELLITE_PVT_IONO_BIT = (1 << 1),
     GNSS_SATELLITE_PVT_TROPO_BIT = (1 << 2),
-} GnssSatellitePvtFlagsBits;
+};
 
-typedef struct {
+struct GnssSatellitePositionEcef {
     double posXMeters;
     double posYMeters;
     double posZMeters;
     double ureMeters;
-} GnssSatellitePositionEcef;
+};
 
-typedef struct {
+struct GnssSatelliteVelocityEcef {
     double velXMps;
     double velYMps;
     double velZMps;
     double ureRateMps;
-} GnssSatelliteVelocityEcef;
+};
 
-typedef struct {
+struct GnssSatelliteClockInfo {
     double satHardwareCodeBiasMeters;
     double satTimeCorrectionMeters;
     double satClkDriftMps;
-} GnssSatelliteClockInfo;
+};
 
-typedef struct {
+enum GnssEphemerisSourceExt {
+    GNSS_EPHEMERIS_SOURCE_EXT_INVALID = 0,
+    GNSS_EPHEMERIS_SOURCE_EXT_DEMODULATED,
+    GNSS_EPHEMERIS_SOURCE_EXT_SERVER_NORMAL,
+    GNSS_EPHEMERIS_SOURCE_EXT_SERVER_LONG_TERM,
+    GNSS_EPHEMERIS_SOURCE_EXT_OTHER,
+};
+
+struct GnssSatellitePvt {
     GnssSatellitePvtFlagsMask flags;
     GnssSatellitePositionEcef satPosEcef;
     GnssSatelliteVelocityEcef satVelEcef;
     GnssSatelliteClockInfo satClockInfo;
-    double ionoDelayMeters;
-    double tropoDelayMeters;
-} GnssSatellitePvt;
+    double  ionoDelayMeters;
+    double  tropoDelayMeters;
+    int64_t TOC;
+    int     IODC;
+    int64_t TOE;
+    int     IODE;
+    GnssEphemerisSourceExt ephemerisSource;
+};
 
-typedef struct {
+struct GnssMeasurementsData {
     // set to sizeof(GnssMeasurementsData)
     uint32_t size;
     // bitwise OR of GnssMeasurementsDataFlagsBits
@@ -1570,24 +1872,24 @@ typedef struct {
     int16_t gloFrequency;
     uint8_t cycleSlipCount;
     GnssSatellitePvt satellitePvt;
-} GnssMeasurementsData;
+};
 
-typedef struct {
+struct GnssMeasurementsSignalType {
     GnssSvType svType;
     double carrierFrequencyHz;
     GnssMeasurementsCodeType codeType;
     char otherCodeTypeName[GNSS_MAX_NAME_LENGTH];
-} GnssMeasurementsSignalType;
+};
 
-typedef struct {
+struct GnssReflectingPlane {
     uint32_t size;                          // set to sizeof(GnssReflectingPlane)
     double latitudeDegrees;
     double longitudeDegrees;
     double altitudeMeters;
     double azimuthDegrees;
-} GnssReflectingPlane;
+};
 
-typedef struct {
+struct GnssSingleSatCorrection {
     uint32_t size;                          // set to sizeof(GnssSingleSatCorrection)
     GnssSingleSatCorrectionMask flags;
     GnssSvType svType;
@@ -1597,9 +1899,9 @@ typedef struct {
     float excessPathLengthMeters;
     float excessPathLengthUncertaintyMeters;
     GnssReflectingPlane reflectingPlane;
-} GnssSingleSatCorrection;
+};
 
-typedef struct {
+struct GnssMeasurementCorrections {
     uint32_t size;                          // set to sizeof(GnssMeasurementCorrections)
     double latitudeDegrees;
     double longitudeDegrees;
@@ -1611,9 +1913,9 @@ typedef struct {
     bool hasEnvironmentBearing;
     float environmentBearingDegrees;
     float environmentBearingUncertaintyDegrees;
-} GnssMeasurementCorrections;
+};
 
-typedef struct {
+struct GnssMeasurementsClock {
     uint32_t size;                          // set to sizeof(GnssMeasurementsClock)
     GnssMeasurementsClockFlagsMask flags; // bitwise OR of GnssMeasurementsClockFlagsBits
     int16_t leapSecond;
@@ -1628,36 +1930,62 @@ typedef struct {
     GnssMeasurementsSignalType referenceSignalTypeForIsb;
     uint64_t elapsedRealTime;    // in ns
     uint64_t elapsedRealTimeUnc; // in ns
-} GnssMeasurementsClock;
+    uint64_t elapsedgPTPTime;    // in ns
+    uint64_t elapsedgPTPTimeUnc; // in ns
+};
 
-typedef struct {
+struct GnssSvNotification {
     uint32_t size;                 // set to sizeof(GnssSvNotification)
     uint32_t count;                // number of SVs in the GnssSv array
     bool gnssSignalTypeMaskValid;
     GnssSv gnssSvs[GNSS_SV_MAX]; // information on a number of SVs
-} GnssSvNotification;
+};
 
-typedef struct {
+struct GnssNmeaNotification {
     uint32_t size;         // set to sizeof(GnssNmeaNotification)
     uint64_t timestamp;  // timestamp
+    LocOutputEngineType locOutputEngType; // engine type
     const char* nmea;    // nmea text
     uint32_t length;       // length of the nmea text
-} GnssNmeaNotification;
+    bool isSvNmea;         //  is NMEA from SV report or not
+};
 
-typedef struct {
+struct GnssDataNotification {
     uint32_t size;                 // set to sizeof(GnssDataNotification)
     GnssDataMask  gnssDataMask[GNSS_LOC_MAX_NUMBER_OF_SIGNAL_TYPES];  // bitwise OR of GnssDataBits
     double        jammerInd[GNSS_LOC_MAX_NUMBER_OF_SIGNAL_TYPES];     // Jammer Indication
     double        agc[GNSS_LOC_MAX_NUMBER_OF_SIGNAL_TYPES];           // Automatic gain control
-} GnssDataNotification;
+    AgcStatus     agcStatusL1; // RF Automatic gain control status for L1 band.
+    AgcStatus     agcStatusL2; // RF Automatic gain control status for L2 band.
+    AgcStatus     agcStatusL5; // RF Automatic gain control status for L5 band.
+};
 
-typedef struct {
+struct GnssMeasurementsAgc {
+    double      agcLevelDb;
+    GnssSvType  svType;
+    double      carrierFrequencyHz;
+};
+
+struct GnssMeasurementsNotification {
     uint32_t size;         // set to sizeof(GnssMeasurementsNotification)
     bool isNhz;            // NHz indicator
     uint32_t count;        // number of items in GnssMeasurements array
     GnssMeasurementsData measurements[GNSS_MEASUREMENTS_MAX];
     GnssMeasurementsClock clock; // clock
-} GnssMeasurementsNotification;
+    AgcStatus     agcStatusL1; // RF Automatic gain control status for L1 band.
+    AgcStatus     agcStatusL2; // RF Automatic gain control status for L2 band.
+    AgcStatus     agcStatusL5; // RF Automatic gain control status for L5 band.
+    bool isFullTracking;
+    uint32_t agcCount;     // number of items in GnssMeasurementsAgc array
+    GnssMeasurementsAgc gnssAgc[GNSS_BANDS_MAX];
+};
+
+struct GnssCapabNotification {
+    uint32_t size;              // set to sizeof(GnssCapabilitiesNotification)
+    uint32_t count;             // number of SVs in the gnssSignalType array
+    GnssMeasurementsSignalType  gnssSignalType[GNSS_LOC_MAX_NUMBER_OF_SIGNAL_TYPES];
+    GnssSignalTypeMask gnssSupportedSignals; // GNSS Supported Signals
+};
 
 typedef uint32_t GnssSvId;
 
@@ -1676,6 +2004,10 @@ inline bool operator ==(GnssSvIdSource const& left, GnssSvIdSource const& right)
 #define GNSS_SV_CONFIG_ALL_BITS_ENABLED_MASK ((uint64_t)0xFFFFFFFFFFFFFFFF)
 struct GnssSvIdConfig {
     uint32_t size; // set to sizeof(GnssSvIdConfig)
+
+    // GPS - SV 1 maps to bit 0
+#define GNSS_SV_CONFIG_GPS_INITIAL_SV_ID 1
+    uint64_t gpsBlacklistSvMask;
 
     // GLONASS - SV 65 maps to bit 0
 #define GNSS_SV_CONFIG_GLO_INITIAL_SV_ID 65
@@ -1706,6 +2038,7 @@ struct GnssSvIdConfig {
 
     inline bool equals(const GnssSvIdConfig& inConfig) {
         if ((inConfig.size == size) &&
+                (inConfig.gpsBlacklistSvMask == gpsBlacklistSvMask) &&
                 (inConfig.gloBlacklistSvMask == gloBlacklistSvMask) &&
                 (inConfig.bdsBlacklistSvMask == bdsBlacklistSvMask) &&
                 (inConfig.qzssBlacklistSvMask == qzssBlacklistSvMask) &&
@@ -1761,14 +2094,14 @@ struct GnssConfigRobustLocation {
 /* Mask indicating enabled or disabled constellations and
    secondary frequency.*/
 typedef uint64_t GnssSvTypesMask;
-typedef enum {
+enum GnssSvTypesMaskBits {
     GNSS_SV_TYPES_MASK_GLO_BIT   = (1<<0),
     GNSS_SV_TYPES_MASK_BDS_BIT   = (1<<1),
     GNSS_SV_TYPES_MASK_QZSS_BIT  = (1<<2),
     GNSS_SV_TYPES_MASK_GAL_BIT   = (1<<3),
     GNSS_SV_TYPES_MASK_NAVIC_BIT = (1<<4),
     GNSS_SV_TYPES_MASK_GPS_BIT   = (1<<5),
-} GnssSvTypesMaskBits;
+};
 #define GNSS_SV_TYPES_MASK_ALL \
     (GNSS_SV_TYPES_MASK_GPS_BIT|GNSS_SV_TYPES_MASK_GLO_BIT|GNSS_SV_TYPES_MASK_BDS_BIT|\
      GNSS_SV_TYPES_MASK_QZSS_BIT|GNSS_SV_TYPES_MASK_GAL_BIT|GNSS_SV_TYPES_MASK_NAVIC_BIT)
@@ -1789,7 +2122,65 @@ struct GnssSvTypeConfig{
     }
 };
 
-struct GnssConfig{
+// Specify the caller who set SV Type config
+enum GnssSvTypeConfigSource {
+    SV_TYPE_CONFIG_FROM_API = 0,
+    SV_TYPE_CONFIG_FROM_XTRA,
+    SV_TYPE_CONFIG_MAX_SOURCE
+};
+
+/** Specify the XTRA assistance data status. */
+enum XtraDataStatus {
+    /** If XTRA feature is disabled or if XTRA feature is enabled,
+     *  but XTRA daemon has not yet retrieved the assistance data
+     *  status from modem on early stage of device bootup, xtra data
+     *  status will be unknown.   */
+    XTRA_DATA_STATUS_UNKNOWN = 0,
+    /** If XTRA feature is enabled, but XTRA data is not present
+     *  on the device. */
+    XTRA_DATA_STATUS_NOT_AVAIL = 1,
+    /** If XTRA feature is enabled, XTRA data has been downloaded
+     *  but it is no longer valid. */
+    XTRA_DATA_STATUS_NOT_VALID = 2,
+    /** If XTRA feature is enabled, XTRA data has been downloaded
+     *  and is currently valid. */
+    XTRA_DATA_STATUS_VALID = 3,
+};
+
+struct XtraStatus {
+    /** XTRA assistance data and NTP time download is enabled or
+     *  disabled. */
+    bool featureEnabled;
+    /** XTRA assistance data status. If XTRA assistance data
+     *  download is not enabled, this field will be set to
+     *  XTRA_DATA_STATUS_UNKNOWN. */
+    XtraDataStatus xtraDataStatus;
+    /** Number of hours that xtra assistance data will remain valid.
+     *  This field will be valid when xtraDataStatus is set to
+     *  XTRA_DATA_STATUS_VALID.
+     *  For all other XtraDataStatus, this field will be set to
+     *  0. */
+    uint32_t xtraValidForHours;
+    std::string lastDownloadReasonCode;
+
+    bool userConsentStatus;
+
+    inline bool equals (const XtraStatus& inXtraStatus) const {
+        if (inXtraStatus.featureEnabled != featureEnabled) {
+            return false;
+        } else if (featureEnabled == false) {
+            return true;
+        } else if ((inXtraStatus.xtraDataStatus == xtraDataStatus) &&
+                   (inXtraStatus.xtraValidForHours == xtraValidForHours) &&
+                   (0 == inXtraStatus.lastDownloadReasonCode.compare(lastDownloadReasonCode))) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+};
+
+struct GnssConfig {
     uint32_t size;  // set to sizeof(GnssConfig)
     GnssConfigFlagsMask flags; // bitwise OR of GnssConfigFlagsBits to mark which params are valid
     GnssConfigGpsLock gpsLock;
@@ -1808,6 +2199,7 @@ struct GnssConfig{
     uint16_t minGpsWeek;
     uint8_t minSvElevation;
     GnssSvTypeConfig secondaryBandConfig;
+    XtraStatus xtraStatus;
 
     inline bool equals(const GnssConfig& config) {
         if (flags == config.flags &&
@@ -1833,7 +2225,7 @@ struct GnssConfig{
     }
 };
 
-typedef struct {
+struct GnssDebugLocation {
     uint32_t size;                        // set to sizeof
     bool                                mValid;
     Location                            mLocation;
@@ -1841,17 +2233,17 @@ typedef struct {
     double                              speedAccuracyMetersPerSecond;
     double                              bearingAccuracyDegrees;
     timespec                            mUtcReported;
-} GnssDebugLocation;
+};
 
-typedef struct {
+struct GnssDebugTime {
     uint32_t size;                        // set to sizeof
     bool                                mValid;
     int64_t                             timeEstimate;
     float                               timeUncertaintyNs;
     float                               frequencyUncertaintyNsPerSec;
-} GnssDebugTime;
+};
 
-typedef struct {
+struct GnssDebugSatelliteInfo {
     // set to sizeof
     uint32_t size;
     // Unique SV Identifier
@@ -1865,17 +2257,17 @@ typedef struct {
     float                               ephemerisAgeSeconds;
     bool                                serverPredictionIsAvailable;
     float                               serverPredictionAgeSeconds;
-} GnssDebugSatelliteInfo;
+};
 
-typedef struct {
+struct GnssDebugReport {
     uint32_t size;                        // set to sizeof
     GnssDebugLocation                   mLocation;
     GnssDebugTime                       mTime;
     std::vector<GnssDebugSatelliteInfo> mSatelliteInfo;
-} GnssDebugReport;
+};
 
 typedef uint32_t LeapSecondSysInfoMask;
-typedef enum {
+enum LeapSecondSysInfoDataBits {
     // current leap second info is available. This info will only
     // be available if the leap second change info is not available.
     //
@@ -1890,7 +2282,7 @@ typedef enum {
     // 2: this leap second change event has already happened and next
     //    leap second change event has not yet been scheduled.
     LEAP_SECOND_SYS_INFO_LEAP_SECOND_CHANGE_BIT = (1ULL << 1),
-} LeapSecondSysInfoDataBits;
+};
 
 struct LeapSecondChangeInfo {
     // GPS timestamp that corrresponds to the last known
@@ -1916,14 +2308,37 @@ struct LeapSecondSystemInfo {
 };
 
 typedef uint32_t LocationSystemInfoMask;
-typedef enum {
+enum LocationSystemInfoDataBits {
     // contains current leap second or leap second change info
     LOCATION_SYS_INFO_LEAP_SECOND = (1ULL << 0),
-} LocationSystemInfoDataBits;
+};
 
 struct LocationSystemInfo {
     LocationSystemInfoMask systemInfoMask;
     LeapSecondSystemInfo   leapSecondSysInfo;
+};
+
+// Disaster crisis report type from GNSS engine
+enum GnssDcReportType {
+    GNSS_DC_REPORT_TYPE_UNDEFINED = 0,
+    // Disaster Prevention information provided by Japan Meteolorogical Agency
+    QZSS_JMA_DISASTER_PREVENTION_INFO = 43,
+    // Disaster Prevention information provided by other organizations
+    QZSS_NON_JMA_DISASTER_PREVENTION_INFO = 44,
+};
+
+// Disaster crisis report from GNSS engine
+struct GnssDcReportInfo {
+    // dc report type, as defined in standard
+    GnssDcReportType     dcReportType;
+    // number of valid bits that client should make use in dcReportData
+    uint32_t             numValidBits;
+    // dc report data, packed into uint8_t
+    std::vector<uint8_t> dcReportData;
+    /** SV's Pseudo-Random Number validity */
+    bool prnValid;
+    /** SV's Pseudo-Random Number. */
+    uint8_t prn;
 };
 
 // Specify the set of terrestrial technologies
@@ -2117,6 +2532,1016 @@ enum GnssGeodeticDatumType {
     GEODETIC_TYPE_PZ_90 = 1,
 };
 
+/* ODCPI Request Info */
+enum OdcpiRequestType {
+    ODCPI_REQUEST_TYPE_START,
+    ODCPI_REQUEST_TYPE_STOP
+};
+
+/* ODCPI callback priorities*/
+enum OdcpiPrioritytype {
+    //ODCPI callback registered by AFW via IGNSS AIDL has LOW priority
+    ODCPI_HANDLER_PRIORITY_LOW,
+    ODCPI_HANDLER_PRIORITY_DEFAULT = ODCPI_HANDLER_PRIORITY_LOW,
+    //ODCPI callback registered by IzatProvider on LE/KaiOS has medium priority
+    ODCPI_HANDLER_PRIORITY_MEDIUM,
+    //Non emergency ODCPI callback registered by IzatManager for RTT position injection
+    //has high priority
+    ODCPI_HANDLER_PRIORITY_HIGH
+};
+
+struct OdcpiRequestInfo {
+    uint32_t size;
+    OdcpiRequestType type;
+    uint32_t tbfMillis;
+    bool isEmergencyMode;
+    bool isCivicAddressRequired;
+};
+
+/** AGPS type */
+enum AGpsType {
+    AGPS_TYPE_INVALID = - 1,
+    AGPS_TYPE_ANY = 0,
+    AGPS_TYPE_SUPL,
+    AGPS_TYPE_C2K,
+    AGPS_TYPE_WWAN_ANY,
+    AGPS_TYPE_WIFI,
+    AGPS_TYPE_SUPL_ES
+};
+
+enum SubId {
+    DEFAULT_SUB = 0,
+    PRIMARY_SUB = 1,
+    SECONDARY_SUB =  2,
+    TERTIARY_SUB =  3
+};
+
+typedef uint32_t AGpsTypeMask;
+enum AGpsTypeBits {
+    AGPS_ATL_TYPE_SUPL    = 1 << 0,
+    AGPS_ATL_TYPE_SUPL_ES = 1 << 1,
+    AGPS_ATL_TYPE_WWAN    = 1 << 2,
+};
+
+enum AgpsCbPriority {
+    AGPS_CB_PRIORITY_NONE = 0,
+    AGPS_CB_PRIORITY_LOW = 1,
+    AGPS_CB_PRIORITY_MED = 2,
+    AGPS_CB_PRIORITY_HIGH = 3,
+};
+
+/** AGPS status event values. */
+enum AGpsStatusValue {
+    AGPS_REQUEST_AGPS_DATA_CONN  = 1,
+    /** GPS releases the AGPS data connection. */
+    AGPS_RELEASE_AGPS_DATA_CONN,
+    /** AGPS data connection initiated */
+    AGPS_DATA_CONNECTED,
+    /** AGPS data connection completed */
+    AGPS_DATA_CONN_DONE,
+    /** AGPS data connection failed */
+    AGPS_DATA_CONN_FAILED
+};
+
+typedef uint32_t ApnTypeMask;
+enum ApnTypeBits {
+    /**<  Denotes APN type for Default/Internet traffic  */
+    APN_TYPE_DEFAULT_BIT = (1 << 0),
+    /**<  Denotes  APN type for IP Multimedia Subsystem  */
+    APN_TYPE_IMS_BIT = (1 << 1),
+    /**<  Denotes APN type for Multimedia Messaging Service  */
+    APN_TYPE_MMS_BIT = (1 << 2),
+    /**<  Denotes APN type for Dial Up Network  */
+    APN_TYPE_DUN_BIT = (1 << 3),
+    /**<  Denotes APN type for Secure User Plane Location  */
+    APN_TYPE_SUPL_BIT = (1 << 4),
+    /**<  Denotes APN type for High Priority Mobile Data  */
+    APN_TYPE_HIPRI_BIT = (1 << 5),
+    /**<  Denotes APN type for over the air administration  */
+    APN_TYPE_FOTA_BIT = (1 << 6),
+    /**<  Denotes APN type for Carrier Branded Services  */
+    APN_TYPE_CBS_BIT = (1 << 7),
+    /**<  Denotes APN type for Initial Attach  */
+    APN_TYPE_IA_BIT = (1 << 8),
+    /**<  Denotes APN type for emergency  */
+    APN_TYPE_EMERGENCY_BIT  = (1 << 9)
+};
+
+
+/*
+ * Represents the status of AGNSS augmented to support IPv4.
+ */
+struct AGnssExtStatusIpV4 {
+    AGpsType         type;
+    ApnTypeMask      apnTypeMask;
+    AGpsStatusValue  status;
+    /*
+     * 32-bit IPv4 address.
+     */
+    uint32_t          ipV4Addr;
+    SubId             subId;
+};
+
+struct GnssCoordinate {
+    uint32_t size;                        // set to sizeof
+    double x;
+    double xUncertainty;
+    double y;
+    double yUncertainty;
+    double z;
+    double zUncertainty;
+};
+
+
+struct GnssAntennaInformation{
+    uint32_t size;                        // set to sizeof
+    double carrierFrequencyMHz;
+    GnssCoordinate phaseCenterOffsetCoordinateMillimeters;
+    std::vector<std::vector<double>> phaseCenterVariationCorrectionMillimeters;
+    std::vector<std::vector<double>> phaseCenterVariationCorrectionUncertaintyMillimeters;
+    std::vector<std::vector<double>> signalGainCorrectionDbi;
+    std::vector<std::vector<double>> signalGainCorrectionUncertaintyDbi;
+};
+
+struct GnssNtripConnectionParams {
+    uint32_t size;                        // set to sizeof
+    bool requiresNmeaLocation;
+    std::string hostNameOrIp;    // null terminated string
+    std::string mountPoint;      // null terminated string
+    std::string username;        // null terminated string
+    std::string password;        // null terminated string
+    uint32_t port;
+    bool useSSL;
+    uint32_t nmeaUpdateInterval; // unit: second
+};
+
+/*
+* Represents the the Nfw Notification structure
+*/
+#define GNSS_MAX_NFW_APP_STRING_LEN 64
+#define GNSS_MAX_NFW_STRING_LEN  20
+
+enum GnssNfwProtocolStack {
+    GNSS_NFW_CTRL_PLANE = 0,
+    GNSS_NFW_SUPL = 1,
+    GNSS_NFW_IMS = 10,
+    GNSS_NFW_SIM = 11,
+    GNSS_NFW_OTHER_PROTOCOL_STACK = 100
+};
+
+enum GnssNfwRequestor {
+    GNSS_NFW_CARRIER = 0,
+    GNSS_NFW_OEM = 10,
+    GNSS_NFW_MODEM_CHIPSET_VENDOR = 11,
+    GNSS_NFW_GNSS_CHIPSET_VENDOR = 12,
+    GNSS_NFW_OTHER_CHIPSET_VENDOR = 13,
+    GNSS_NFW_AUTOMOBILE_CLIENT = 20,
+    GNSS_NFW_OTHER_REQUESTOR = 100
+};
+
+enum GnssNfwResponseType {
+    GNSS_NFW_REJECTED = 0,
+    GNSS_NFW_ACCEPTED_NO_LOCATION_PROVIDED = 1,
+    GNSS_NFW_ACCEPTED_LOCATION_PROVIDED = 2,
+};
+
+struct GnssNfwNotification {
+    char                    proxyAppPackageName[GNSS_MAX_NFW_APP_STRING_LEN];
+    GnssNfwProtocolStack    protocolStack;
+    char                    otherProtocolStackName[GNSS_MAX_NFW_STRING_LEN];
+    GnssNfwRequestor        requestor;
+    char                    requestorId[GNSS_MAX_NFW_STRING_LEN];
+    GnssNfwResponseType     responseType;
+    bool                    inEmergencyMode;
+    bool                    isCachedLocation;
+};
+
+typedef uint16_t GnssMeasurementCorrectionsCapabilitiesMask;
+enum GnssMeasurementCorrectionsCapabilities {
+    GNSS_MEAS_CORR_LOS_SATS            = 1 << 0,
+    GNSS_MEAS_CORR_EXCESS_PATH_LENGTH  = 1 << 1,
+    GNSS_MEAS_CORR_REFLECTING_PLANE    = 1 << 2,
+};
+
+ /*  Specify the valid fields in GnssEnergyConsumedInfo. */
+enum GnssEnergyConsumedInfoMask {
+    /** GnssEnergyConsumedInfo has valid
+     GnssEnergyConsumedInfo::totalEnergyConsumedSinceFirstBoot. */
+    ENERGY_CONSUMED_SINCE_FIRST_BOOT_BIT = (1<<0),
+};
+
+/*  Specify the info regarding energy consumed by GNSS engine. */
+struct GnssEnergyConsumedInfo {
+    /** Bitwise OR of GnssEnergyConsumedInfoMask to
+     specify the valid fields in GnssEnergyConsumedInfo.*/
+    GnssEnergyConsumedInfoMask flags;
+
+    /** Energy consumed by the modem GNSS engine since device first
+     ever bootup, in unit of 0.1 milli watt seconds.
+     A value of 0xffffffffffffffff indicates an invalid reading.*/
+    uint64_t totalEnergyConsumedSinceFirstBoot;
+};
+
+/** Specify the logcat debug level. Currently, only XTRA
+ *  daemon will support the runtime configure of debug log
+ *  level. */
+enum DebugLogLevel {
+    /** No debug message will be outputed. */
+    DEBUG_LOG_LEVEL_NONE = 0,
+    /** Only error level debug messages will get logged. */
+    DEBUG_LOG_LEVEL_ERROR = 1,
+    /** Only warning/error level debug messages will get logged. */
+    DEBUG_LOG_LEVEL_WARNING = 2,
+    /** Only info/wanring/error level debug messages will get
+     *  logged. */
+    DEBUG_LOG_LEVEL_INFO = 3,
+    /** Only debug/info/wanring/error level debug messages will
+     *  get logged. */
+    DEBUG_LOG_LEVEL_DEBUG = 4,
+    /** Verbose/debug/info/wanring/error level debug messages will
+     *  get logged. */
+    DEBUG_LOG_LEVEL_VERBOSE = 5,
+};
+
+/** Xtra feature configuration parameters */
+struct XtraConfigParams {
+    /** Number of minutes between periodic, consecutive successful
+     *  XTRA assistance data downloads. The configured value is in
+     *  unit of 1 minute and will be capped at a maximum of 168
+     *  hours and minimum of 48 hours. 0 means to use modem
+     *  default download. */
+    uint32_t xtraDownloadIntervalMinute;
+    /** Connection timeout when connecting backend for both xtra
+     *  assistance data download and NTP time downlaod. The
+     *  configured value is in in unit of 1 second and should be
+     *  capped at a maximum of 300 secs (not indefinite) and minimum
+     *  of 3 secs. */
+    uint32_t xtraDownloadTimeoutSec;
+    /** Interval to wait before retrying xtra assistance data
+     *  download in case of device error. The configured value is in
+     *  unit of 1 minute and should be capped with a maximum of 1
+     *  day and a minimum of 3 minutes. Please note that this
+     *  parameter does not apply to NTP time download. */
+    uint32_t xtraDownloadRetryIntervalMinute;
+    /** Total number of allowed retry attempts for assistance data
+     *  download in case of device error.
+     *  The configured value is in unit of 1 retry and max number of
+     *  allowed retry is 6 per download interval.
+     *  Please note that this parameter does not apply to NTP
+     *  time download. */
+    uint32_t xtraDownloadRetryAttempts;
+    /** Path to the certificate authority (CA) repository that need
+     *  to be used for XTRA assistance data download. Max of 128
+     *  bytes, including null-terminating byte will be supported.
+     *  Please note that paraemter does not apply to NTP time
+     *  download. */
+    char xtraCaPath[128];
+    /** URLs from which XTRA assistance data will be fetched. Up to
+     *  three URLs can be configured when this API is used. The URLs
+     *  shall include the port number to be used for download. Max
+     *  of 128 bytes, including null-terminating byte will be
+     *  supported. Valid xtra server URLs should start with
+     *  "https://". */
+    uint32_t xtraServerURLsCount;
+    char xtraServerURLs[3][128];
+    /** URLs for NTP server to fetch current time. Up to three URLs
+     *  can be configured when this API is used. The URLs shall
+     *  include the port number to be used for download. Max of 128
+     *  bytes, including null-terminating byte will be supported.
+     *  Example of valid ntp server URL is:
+     *  ntp.contiserver.com:123. */
+    uint32_t ntpServerURLsCount;
+    char ntpServerURLs[3][128];
+    /** Enable or disable XTRA integrity download. */
+    bool xtraIntegrityDownloadEnable;
+    /** XTRA integrity download interval, only applicable if XTRA
+     *  integrity download is enabled. */
+    uint32_t xtraIntegrityDownloadIntervalMinute;
+    /** Level of debug log messages that will be logged. */
+    DebugLogLevel xtraDaemonDebugLogLevel;
+    /** URL of NTS KE Server. if provided, shall be complete and
+     *  shall include the port number. Max of 128 bytes,
+     *  including null-terminating byte will be supported.
+     *  Valid NTS KE server URL should start with "https://".
+     *  If not specified, then device will use
+     *  default URL of https://nts.xtracloud.net:4460. */
+    char ntsKeServerURL[128];
+    /** To indicate if Diag logging to be enabled for XTRA */
+    uint32_t xtraDaemonDiagLoggingStatus;
+};
+
+enum XtraStatusUpdateType {
+    XTRA_STATUS_UPDATE_UNDEFINED = 0,
+    /** XTRA status update due to invoke getXtraStatus(). */
+    XTRA_STATUS_UPDATE_UPON_QUERY = 1,
+    /** XTRA status update due to first invokation of
+     *  registerXtraStatusUpdate(). */
+    XTRA_STATUS_UPDATE_UPON_REGISTRATION = 2,
+    /** XTRA status update due to calling configXtra() to
+     *  enable/disable XTRA feature. */
+    XTRA_STATUS_UPDATE_UPON_ENABLEMENT = 3,
+    /** XTRA status update due to status change in xtra assistance
+     *  data status, e.g.: from unknown to known during device
+     *  bootup, or when XTRA data gets downloaded. */
+    XTRA_STATUS_UPDATE_UPON_STATUS_CHANGE = 4,
+};
+
+/**************** EPH REPORT *************/
+/** Specifies the Source of ephemeris and action to be performed on
+ *  receipt of the ephemeris (Update/Delete) Action shall be
+ *  performed on GnssEphSource specified */
+enum GnssEphAction {
+    /**<Update ephemeris. Source of ephemeris is unknown  */
+    GNSS_EPH_ACTION_UPDATE_SRC_UNKNOWN_V02 = 0,
+    /**<Update ephemeris. Source of ephemeris is OTA  */
+    GNSS_EPH_ACTION_UPDATE_SRC_OTA_V02     = 1,
+    /**<Update ephemeris. Source of ephemeris is Network  */
+    GNSS_EPH_ACTION_UPDATE_SRC_NETWORK_V02 = 2,
+    /**<Max value for update ephemeris action. DO NOT USE  */
+    GNSS_EPH_ACTION_UPDATE_MAX_V02         = 999,
+    /**<Delete previous ephemeris from unknown source  */
+    GNSS_EPH_ACTION_DELETE_SRC_UNKNOWN_V02 = 1000,
+    /**<Delete previous ephemeris from network  */
+    GNSS_EPH_ACTION_DELETE_SRC_NETWORK_V02 = 1001,
+    /**<Delete previous ephemeris from OTA  */
+    GNSS_EPH_ACTION_DELETE_SRC_OTA_V02     = 1002,
+    /**<Max value for delete ephemeris action. DO NOT USE  */
+    GNSS_EPH_ACTION_DELETE_MAX_V02         = 1999,
+};
+
+enum GalEphSignalSource {
+    /** GALILEO signal is unknown  */
+    GAL_EPH_SIGNAL_SRC_UNKNOWN_V02 = 0,
+    /** GALILEO signal is E1B  */
+    GAL_EPH_SIGNAL_SRC_E1B_V02     = 1,
+    /** GALILEO signal is E5A  */
+    GAL_EPH_SIGNAL_SRC_E5A_V02     = 2,
+    /** GALILEO signal is E5B  */
+    GAL_EPH_SIGNAL_SRC_E5B_V02     = 3,
+};
+
+struct GnssEphCommon {
+    uint16_t gnssSvId;
+    /** Unique SV Identifier.
+     *  For SV Range of supported constellation, please refer to the
+     *  comment section of gnssSvId in GpsMeasUsageInfo.
+     */
+
+    GnssEphAction updateAction;
+    /**<   Specifies the action and source of ephemeris. \n
+    - Type: int32 enum */
+
+    uint16_t IODE;
+    /** Issue of data ephemeris used (unit-less).
+     *  GPS: IODE 8 bits.
+     *  BDS: AODE 5 bits.
+     *  GAL: SIS IOD 10 bits.
+     *  - Type: uint16
+     *  - Units: Unit-less
+     */
+
+    double aSqrt;
+    /** Square root of semi-major axis.
+     *  - Type: double
+     *  - Units: Square Root of Meters
+     */
+
+    double deltaN;
+    /** Mean motion difference from computed value.
+     * - Type: double
+     * - Units: Radians/Second
+     */
+
+    double m0;
+    /** Mean anomaly at reference time.
+     * - Type: double
+     * - Units: Radians
+     */
+
+    double eccentricity;
+    /**  Eccentricity .
+     * - Type: double
+     * - Units: Unit-less
+     */
+
+    double omega0;
+    /** Longitude of ascending node of orbital plane at the weekly epoch.
+     * - Type: double
+     * - Units: Radians */
+
+    double i0;
+    /** Inclination angle at reference time.
+     * - Type: double
+     * - Units: Radians */
+
+    double omega;
+    /** Argument of Perigee.
+     * - Type: double
+     * - Units: Radians */
+
+    double omegaDot;
+    /** Rate of change of right ascension.
+     * - Type: double
+     * - Units: Radians/Second */
+
+    double iDot;
+    /** Rate of change of inclination angle.
+     * - Type: double
+     * - Units: Radians/Second */
+
+    double cUc;
+    /** Amplitude of the cosine harmonic correction term to the argument of latitude.
+     * - Type: double
+     * - Units: Radians */
+
+    double cUs;
+    /** Amplitude of the sine harmonic correction term to the argument of latitude. \n
+     * - Type: double
+     * - Units: Radians */
+
+    double cRc;
+    /** Amplitude of the cosine harmonic correction term to the orbit radius.
+     * - Type: double
+     * - Units: Meters */
+
+    double cRs;
+    /** Amplitude of the sine harmonic correction term to the orbit radius.
+     * - Type: double
+     * - Units: Meters */
+
+    double cIc;
+    /** Amplitude of the cosine harmonic correction term to the angle of inclination.
+     * - Type: double
+     * - Units: Radians */
+
+    double cIs;
+    /** Amplitude of the sine harmonic correction term to the angle of inclination.
+     * - Type: double
+     * - Units: Radians */
+
+    uint32_t toe;
+    /** Reference time of ephemeris.
+     * - Type: uint32
+     * - Units: Seconds */
+
+    uint32_t toc;
+    /** Clock data reference time of week.
+     * - Type: uint32
+     * - Units: Seconds */
+
+    double af0;
+    /** Clock bias correction coefficient.
+     * - Type: double
+     * - Units: Seconds */
+
+    double af1;
+    /** Clock drift coefficient.
+     * - Type: double
+     * - Units: Seconds/Second */
+
+    double af2;
+    /** Clock drift rate correction coefficient.
+     * - Type: double
+     * - Units: Seconds/Seconds^2 */
+
+};
+
+/** GPE/QZSS extended ephemeris reports */
+#define GNSS_EXT_EPH_ISC_L1CA_VALID 0x00000001
+#define GNSS_EXT_EPH_ISC_L2C_VALID  0x00000002
+#define GNSS_EXT_EPH_ISC_L5I5_VALID 0x00000004
+#define GNSS_EXT_EPH_ISC_L5Q5_VALID 0x00000008
+#define GNSS_EXT_EPH_ALERT_VALID 0x00000010
+#define GNSS_EXT_EPH_URANED0_VALID 0x00000020
+#define GNSS_EXT_EPH_URANED1_VALID 0x00000040
+#define GNSS_EXT_EPH_URANED2_VALID 0x00000080
+#define GNSS_EXT_EPH_TOP_VALID 0x00000100
+#define GNSS_EXT_EPH_TOP_CLOCK_VALID 0x00000200
+#define GNSS_EXT_EPH_VALIDITY_PERIOD_VALID 0x00000400
+#define GNSS_EXT_EPH_DELTA_NDOT_VALID 0x00000800
+#define GNSS_EXT_EPH_DELTAA_VALID 0x00001000
+#define GNSS_EXT_EPH_ADOT_VALID 0x00002000
+
+/* GPS Extended Ephemeris struct */
+struct GpsExtendedEphemeris {
+    uint16_t gnssSvId;
+    /**<   GNSS SV ID. \n
+       Range:\n
+       - GPS --     1 to 32 \n
+       - QZSS --    193 to 197 \n
+       - BDS --     201 to 263 \n
+       - Galileo -- 301 to 336 \n
+       - NavIC --   401 to 420 \n
+    */
+
+    uint32_t validityMask;
+    /**<   Specifies validity of all the fields.  \n
+        - iscL1ca -- 0x0001 \n
+        - iscL2c  -- 0x0002 \n
+        - iscL5I5  -- 0x0004  \n
+        - iscL5Q5 --  0x0008  \n
+        - alert   -- 0x0010 \n
+        - uraNed0  -- 0x0020 \n
+        - uraNed1  -- 0x0040  \n
+        - uraNed2 --  0x0080  \n
+        - top     -- 0x0100 \n
+        - topClock  -- 0x0200 \n
+        - validityPeriod  -- 0x0400  \n
+        - deltaNdot --  0x0800  \n
+        - deltaA    --  0x1000  \n
+        - adot      --  0x2000  \n
+    */
+
+    float iscL1ca;
+    /**<   InterSignal Correction between L1ca Data and Pilot channels in milliseconds,
+           always zero for QZSS.
+       - Units -- milliseconds */
+
+    float iscL2c;
+    /**<   InterSignal Correction between L2c Data and Pilot channels in milliseconds.
+       - Units -- milliseconds */
+
+    float iscL5I5;
+    /**<   InterSignal Correction between L5I5 Data and Pilot channels in milliseconds.
+       - Units -- milliseconds */
+
+    float iscL5Q5;
+    /**<   InterSignal Correction between L5Q5 Data and Pilot channels in milliseconds.
+       - Units -- milliseconds    */
+
+    uint8_t alert;
+    /**<   Alert Bit Info (unitless). */
+
+    uint8_t uraNed0;
+    /**<   NED accuracy index (5 bits, unitless). */
+
+    uint8_t uraNed1;
+    /**<   NED accuracy change index (3 bits), UraNed1 = 1/2^N (m/s),
+           N=14 + UraNed1 index (unitless). */
+
+    uint8_t uraNed2;
+    /**<   NED accuracy change rate index (3 bits), UraNed2 = 1/2^N (m/s^2),
+           N=28 + UraNed2 index (unitless). */
+
+    double top;
+    /**<   Data predict time of week, 0-604500 sec.
+       - Units -- Seconds */
+
+    uint16_t topClock;
+    /**<   Data predict time of week (clock) , scale 300 seconds.
+       - Units -- Seconds */
+
+    uint32_t validityPeriod;
+    /**<   Validity Period in seconds.
+       - Units -- Seconds */
+
+    double deltaNdot;
+    /**<   Rate of Mean motion difference from computed value [semi-circle/sec^2] (unitless).
+       */
+
+    double deltaA;
+    /**<   Semi-Major Axis Difference At Reference Time [m].
+       - Units -- Meters */
+
+    double adot;
+    /**<   Change Rate In Semi-Major Axis [m/sec].
+       - Units -- Meters/seconds */
+};
+
+/* GPS Navigation Model Info */
+struct GpsEphemeris {
+    GnssEphCommon commonEphemerisData;
+    /** Common ephemeris data.   */
+
+    uint8_t signalHealth;
+    /**  Signal health.
+     *    Bit 0 : L5 Signal Health.
+     *    Bit 1 : L2 Signal Health.
+     *    Bit 2 : L1 Signal Health.
+     *    - Type: uint8
+     *    - Values: 3 bit mask of signal health, where set bit indicates unhealthy signal */
+
+    uint8_t URAI;
+    /**  User Range Accuracy Index.
+     *    - Type: uint8
+     *    - Units: Unit-less */
+
+    uint8_t codeL2;
+    /** Indicates which codes are commanded ON for the L2 channel (2-bits).
+     *   - Type: uint8
+     *   Valid Values:
+     *   - 00 : Reserved
+     *   - 01 : P code ON
+     *   - 10 : C/A code ON */
+
+    uint8_t dataFlagL2P;
+    /**  L2 P-code indication flag.
+     *    - Type: uint8
+     *    - Value 1 indicates that the Nav data stream was
+     *   commanded OFF on the P-code of the L2 channel. */
+
+    double tgd;
+    /** Time of group delay.
+     *    - Type: double
+     *    - Units: Seconds */
+
+    uint8_t fitInterval;
+    /** Indicates the curve-fit interval used by the CS.
+     *    - Type: uint8
+     *    Valid Values:
+     *    - 0 : Four hours
+     *    - 1 : Greater than four hours */
+
+    uint16_t IODC;
+    /** Issue of Data, Clock.
+     *    - Type: uint16
+     *    - Units: Unit-less */
+};
+
+/* GLONASS Navigation Model Info */
+struct GlonassEphemeris {
+
+    uint16_t gnssSvId;
+    /** GNSS SV ID.
+     *  - Type: uint16
+     *  - Range: 65 to 96 if known.
+     * When the slot number to SV ID mapping is unknown, set to 255 */
+
+    GnssEphAction updateAction;
+    /**<   Specifies the action and source of ephemeris. \n
+    - Type: int32 enum */
+
+    uint8_t bnHealth;
+    /** SV health flags.
+     *   - Type: uint8
+     *   - Valid Values:
+     *   - 0 : Healthy
+     *   - 1 : Unhealthy */
+
+    uint8_t lnHealth;
+    /**  Ln SV health flags. GLONASS-M.
+     *  - Type: uint8
+     *  Valid Values:
+     *  - 0 : Healthy
+     *  - 1 : Unhealthy */
+
+    uint8_t tb;
+    /**  Index of a time interval within current day according to UTC(SU) + 03 hours 00 min.
+     *  - Type: uint8
+     *  - Units: Unit-less */
+
+    uint8_t ft;
+    /**  SV accuracy index.
+     *  - Type: uint8
+     *  - Units: Unit-less */
+
+    uint8_t gloM;
+    /** GLONASS-M flag.
+     *  - Type: uint8
+     *  Valid Values:
+     *  - 0 : GLONASS
+     *  - 1 : GLONASS-M */
+
+    uint8_t enAge;
+    /** Characterizes "Age" of current information.
+     *  - Type: uint8
+     *  - Units: Days */
+
+    uint8_t gloFrequency;
+    /** GLONASS frequency number + 8.
+     *  - Type: uint8
+     *  - Range: 1 to 14
+     */
+
+    uint8_t p1;
+    /** Time interval between two adjacent values of tb parameter.
+     *  - Type: uint8
+     *  - Units: Minutes */
+
+    uint8_t p2;
+    /** Flag of oddness ("1") or evenness ("0") of the value of tb
+     *  for intervals 30 or 60 minutes.
+     *  - Type: uint8 */
+
+    float deltaTau;
+    /** Time difference between navigation RF signal transmitted in L2 sub-band
+     *  and aviation RF signal transmitted in L1 sub-band.
+     *  - Type: floating point
+     *  - Units: Seconds */
+
+    double position[3];
+    /** Satellite XYZ position.
+     *  - Type: array of doubles
+     *  - Units: Meters */
+
+    double velocity[3];
+    /** Satellite XYZ velocity.
+     *  - Type: array of doubles
+     *  - Units: Meters/Second */
+
+    double acceleration[3];
+    /** Satellite XYZ sola-luni acceleration.
+     *  - Type: array of doubles
+     *  - Units: Meters/Second^2 */
+
+    float tauN;
+    /** Satellite clock correction relative to GLONASS time.
+     * - Type: floating point
+     * - Units: Seconds */
+
+    float gamma;
+    /** Relative deviation of predicted carrier frequency value
+     *  from nominal value at the instant tb.
+     *  - Type: floating point
+     *  - Units: Unit-less */
+
+    double toe;
+    /** Complete ephemeris time, including N4, NT and Tb.
+     *  [(N4-1)*1461 + (NT-1)]*86400 + tb*900
+     *  - Type: double
+     *  - Units: Seconds */
+
+    uint16_t nt;
+    /** Current date, calendar number of day within four-year interval.
+     *  Starting from the 1-st of January in a leap year.
+     *  - Type: uint16
+     *  - Units: Days */
+};
+
+/** BDS extended ephemeris data validity flags */
+#define GNSS_BDS_EXT_EPH_ISC_B2A_VALID 0x00000001
+#define GNSS_BDS_EXT_EPH_ISC_B1C_VALID 0x00000002
+#define GNSS_BDS_EXT_EPH_TGD_B2A_VALID 0x00000004
+#define GNSS_BDS_EXT_EPH_TGD_B1C_VALID 0x00000008
+#define GNSS_BDS_EXT_EPH_SV_TYPE_VALID 0x00000010
+#define GNSS_BDS_EXT_EPH_VALIDITY_PERIOD 0x00000020
+#define GNSS_BDS_EXT_EPH_INTEGRITY_FLAGS 0x00000040
+#define GNSS_BDS_EXT_EPH_DELTA_NDOT_VALID 0x00000080
+#define GNSS_BDS_EXT_EPH_DELTAA_VALID 0x00000100
+#define GNSS_BDS_EXT_EPH_ADOT_VALID 0x00000200
+
+/** BDS Extended ephemeris struct */
+struct BdsExtendedEphemeris {
+    uint16_t gnssSvId;
+    /**<   GNSS SV ID. \n
+       Range:\
+       - GPS --     1 to 32 \n
+       - QZSS --    193 to 197 \n
+       - BDS --     201 to 263 \n
+       - Galileo -- 301 to 336 \n
+       - NavIC --   401 to 420 \n
+    */
+
+    uint32_t validityMask;
+    /**<   Specifies validity of all the fields.  \n
+        - iscB2a -- 0x0001   \n
+        - iscB1c -- 0x0002  \n
+        - tgdB2a -- 0x0004   \n
+        - tgdB1c -- 0x0008  \n
+        - svType -- 0x0010   \n
+        - validityPeriod  -- 0x0020  \n
+        - integrityFlags -- 0x0040   \n
+        - deltaNdot  -- 0x0080  \n
+        - deltaA -- 0x0100   \n
+        - adot  -- 0x0200  \n
+    */
+    float iscB2a;
+    /**<   InterSignal Correction between B2a Data and Pilot channels in milliseconds.
+       - Units -- milliseconds */
+
+    float iscB1c;
+    /**<   InterSignal Correction between B1c Data and Pilot channels in milliseconds. \n
+       - Units -- milliseconds */
+
+    float tgdB2a;
+    /**<   Time of Group Delay For B2a in milliseconds.
+       - Units -- milliseconds */
+
+    float tgdB1c;
+    /**<   Time of Group Delay For B1C in milliseconds.
+       - Units -- milliseconds */
+
+    uint8_t svType;
+    /**<   Sv Type GEO / MEO / IGSO (Unitless). */
+
+    uint32_t validityPeriod;
+    /**   Validity Period in seconds.
+       - Units -- Seconds */
+
+    uint8_t integrityFlags;
+    /** Satellite Integrity Flags consists data integrity Flag(DIF),
+     *  Signal Integrity Flag(SIF), Accuracy Integrity Flag (AIF).
+     *  Values:
+     *  - b0 - AIF, The signal is Valid(0) or Invalid (1).
+     *  - b1 - SIF, The signal is Normal(0) or Abnormal (1).
+     *  - b2 - DIF, The error of message parameters in this signal does not
+     *  exceeds the prediction accuracy (0)/ Exceeds the prediction accuracy (1).
+     *  - b3 - B1I, ephemeris health (unitless).
+     */
+
+    double deltaNdot;
+    /**<   Rate of Mean motion difference from computed value [semi-circle/sec^2] (unitless).
+     */
+
+    double deltaA;
+    /**<   Semi-Major Axis Difference At Reference Time [m]. \n
+       - Units -- Meters */
+
+    double adot;
+    /**<   Change Rate In Semi-Major Axis [m/sec]. \
+       - Units -- Meters/seconds */
+};
+
+/* BDS Navigation Model Info */
+struct BdsEphemeris {
+
+    GnssEphCommon commonEphemerisData;
+    /** Common ephemeris data.   */
+
+    uint8_t svHealth;
+    /** Satellite health information applied to both B1 and B2 (SatH1).
+     *  - Type: uint8
+     *  Valid Values:
+     *  - 0 : Healthy
+     *  - 1 : Unhealthy */
+
+    uint8_t AODC;
+    /** Age of data clock.
+     *  - Type: uint8
+     *  - Units: Hours */
+
+    double tgd1;
+    /**  Equipment group delay differential on B1 signal.
+     *  - Type: double
+     *  - Units: Nano-Seconds */
+
+    double tgd2;
+    /** Equipment group delay differential on B2 signal.
+     *  - Type: double
+     *  - Units: Nano-Seconds */
+
+    uint8_t URAI;
+    /** User range accuracy index (4-bits).
+     *  - Type: uint8
+     *  - Units: Unit-less */
+};
+
+/* GALIELO Navigation Model Info */
+struct GalileoEphemeris {
+
+    GnssEphCommon commonEphemerisData;
+    /** Common ephemeris data.   */
+
+    GalEphSignalSource dataSourceSignal;
+    /** Galileo Signal Source.
+     *  Valid Values: \n
+     * - GAL_EPH_SIGNAL_SRC_UNKNOWN (0) --  GALILEO signal is unknown
+     * - GAL_EPH_SIGNAL_SRC_E1B (1) --  GALILEO signal is E1B
+     * - GAL_EPH_SIGNAL_SRC_E5A (2) --  GALILEO signal is E5A
+     * - GAL_EPH_SIGNAL_SRC_E5B (3) --  GALILEO signal is E5B  */
+
+    uint8_t sisIndex;
+    /** Signal-in-space index for dual frequency E1-E5b/E5a depending on dataSignalSource.
+     *  - Type: uint8
+     *  - Units: Unit-less */
+
+    double bgdE1E5a;
+    /** E1-E5a Broadcast group delay from F/Nav (E5A).
+     *  - Type: double
+     *  - Units: Seconds */
+
+    double bgdE1E5b;
+    /** E1-E5b Broadcast group delay from I/Nav (E1B or E5B).
+     *  For E1B or E5B signal, both bgdE1E5a and bgdE1E5b are valid.
+     *  For E5A signal, only bgdE1E5a is valid.
+     *  Signal source identified using dataSignalSource.
+     *  - Type: double
+     *  - Units: Seconds */
+
+    uint8_t svHealth;
+    /** SV health status of signal identified by dataSourceSignal.
+     * - Type: uint8
+     * Valid Values:
+     * - 0 : Healthy
+     * - 1 : Unhealthy */
+};
+
+/* NAVIC Navigation Model Info */
+struct NavicEphemeris {
+
+    /** Common ephemeris data. */
+    GnssEphCommon commonEphemerisData;
+    /** Week number since the NavIC system time start epoch (August 22, 1999) */
+    uint32_t weekNum;
+    /** Issue of Data, Clock
+     *   Mandatory Field */
+    uint32_t iodec;
+    /** Health status of navigation data on L5 SPS signal.
+     *   0=OK, 1=bad */
+    uint8_t l5Health;
+    /** Health status of navigation data on S SPS signal.
+     *   0=OK, 1=bad */
+    uint8_t sHealth;
+    /** Inclination angle at reference time
+     *   Unit: radian
+     *   Mandatory Field */
+    double inclinationAngleRad;
+    /** User Range Accuracy Index(4bit)
+     *   Mandatory Field */
+    uint8_t urai;
+    /** Time of Group delay
+     *   Unit: second
+     *   Mandatory Field */
+    double  tgd;
+};
+
+/** GPS Navigation model for each SV */
+struct GpsEphemerisResponse {
+    uint16_t numOfEphemeris;
+    GpsEphemeris gpsEphemerisData[GNSS_EPHEMERIS_LIST_MAX_SIZE_V02];
+
+    /**  Ephemeris Signal Source Type (Unitless). */
+    bool validDataSourceSignal;
+    Gnss_LocSignalEnumType dataSourceSignal;
+
+    uint16_t numOfExtendedEphemeris;
+    /** Extended Ephemeris data */
+    bool validExtendedEphData;
+    GpsExtendedEphemeris gpsExtEphemerisData[GNSS_EPHEMERIS_LIST_MAX_SIZE_V02];
+};
+
+/** GLONASS Navigation model for each SV */
+struct GlonassEphemerisResponse {
+    uint16_t numOfEphemeris;
+    GlonassEphemeris gloEphemerisData[GNSS_EPHEMERIS_LIST_MAX_SIZE_V02];
+};
+
+/** BDS Navigation model for each SV */
+struct BdsEphemerisResponse {
+    uint16_t numOfEphemeris;
+    BdsEphemeris bdsEphemerisData[GNSS_EPHEMERIS_LIST_MAX_SIZE_V02];
+
+    /**  Ephemeris Signal Source Type (Unitless). */
+    bool validDataSourceSignal;
+    Gnss_LocSignalEnumType dataSourceSignal;
+
+    uint16_t numOfExtendedEphemeris;
+    /** Extended Ephemeris data */
+    bool validExtendedEphData;
+    BdsExtendedEphemeris bdsExtEphemerisData[GNSS_EPHEMERIS_LIST_MAX_SIZE_V02];
+};
+
+/** GALILEO Navigation model for each SV */
+struct GalileoEphemerisResponse {
+    uint16_t numOfEphemeris;
+    GalileoEphemeris galEphemerisData[GNSS_EPHEMERIS_LIST_MAX_SIZE_V02];
+};
+
+/** QZSS Navigation model for each SV */
+struct QzssEphemerisResponse {
+    uint16_t numOfEphemeris;
+    GpsEphemeris qzssEphemerisData[GNSS_EPHEMERIS_LIST_MAX_SIZE_V02];
+
+    /**  Ephemeris Signal Source Type (Unitless). */
+    bool validDataSourceSignal;
+    Gnss_LocSignalEnumType dataSourceSignal;
+
+    uint16_t numOfExtendedEphemeris;
+    /** Extended Ephemeris data */
+    bool validExtendedEphData;
+    GpsExtendedEphemeris qzssExtEphemerisData[GNSS_EPHEMERIS_LIST_MAX_SIZE_V02];
+
+};
+/** NAVIC Navigation model for each SV */
+struct NavicEphemerisResponse {
+    uint16_t numOfEphemeris;
+    NavicEphemeris navicEphemerisData[GNSS_EPHEMERIS_LIST_MAX_SIZE_V02];
+};
+
+struct GnssSvEphemerisReport {
+    /** Indicates GNSS Constellation Type
+     *   Mandatory field */
+    Gnss_LocSvSystemEnumType gnssConstellation;
+
+    /** GPS System Time of the ephemeris report */
+    bool isSystemTimeValid;
+    GnssSystemTimeStructType systemTime;
+
+    union {
+       /** GPS Ephemeris */
+       GpsEphemerisResponse gpsEphemeris;
+       /** GLONASS Ephemeris */
+       GlonassEphemerisResponse glonassEphemeris;
+       /** BDS Ephemeris */
+       BdsEphemerisResponse bdsEphemeris;
+       /** GALILEO Ephemeris */
+       GalileoEphemerisResponse galileoEphemeris;
+       /** QZSS Ephemeris */
+       QzssEphemerisResponse qzssEphemeris;
+       /** NAVIC Ephemeris */
+       NavicEphemerisResponse navicEphemeris;
+    } ephInfo;
+};
 
 /* Provides the capabilities of the system
    capabilities callback is called once soon after createInstance is called */
@@ -2144,7 +3569,7 @@ typedef std::function<void(
    trackingCallback is called when delivering a location in a tracking session
    broadcasted to all clients, no matter if a session has started by client */
 typedef std::function<void(
-    Location location
+    const Location& location
 )> trackingCallback;
 
 /* Used for startBatching API, optional can be NULL
@@ -2153,11 +3578,11 @@ typedef std::function<void(
 typedef std::function<void(
     uint32_t count,      // number of locations in array
     Location* location, // array of locations
-    BatchingOptions batchingOptions // Batching options
+    const BatchingOptions& batchingOptions // Batching options
 )> batchingCallback;
 
 typedef std::function<void(
-    BatchingStatusInfo batchingStatus, // batch status
+    const BatchingStatusInfo& batchingStatus, // batch status
     std::list<uint32_t> & listOfCompletedTrips
 )> batchingStatusCallback;
 
@@ -2165,7 +3590,7 @@ typedef std::function<void(
     gnssLocationInfoCallback is called only during a tracking session
     broadcasted to all clients, no matter if a session has started by client */
 typedef std::function<void(
-    GnssLocationInfoNotification gnssLocationInfoNotification
+    const GnssLocationInfoNotification& gnssLocationInfoNotification
 )> gnssLocationInfoCallback;
 
 /* Gives default combined location information from all engines and
@@ -2185,48 +3610,48 @@ typedef std::function<void(
 /* Used for addGeofences API, optional can be NULL
    geofenceBreachCallback is called when any number of geofences have a state change */
 typedef std::function<void(
-    GeofenceBreachNotification geofenceBreachNotification
+    const GeofenceBreachNotification& geofenceBreachNotification
 )> geofenceBreachCallback;
 
 /* Used for addGeofences API, optional can be NULL
        geofenceStatusCallback is called when any number of geofences have a status change */
 typedef std::function<void(
-    GeofenceStatusNotification geofenceStatusNotification
+    const GeofenceStatusNotification& geofenceStatusNotification
 )> geofenceStatusCallback;
 
 /* Network Initiated request, optional can be NULL
    This callback should be responded to by calling gnssNiResponse */
 typedef std::function<void(
     uint32_t id, // id that should be used to respond by calling gnssNiResponse
-    GnssNiNotification gnssNiNotification
+    const GnssNiNotification& gnssNiNotification
 )> gnssNiCallback;
 
 /* Gives GNSS SV information, optional can be NULL
     gnssSvCallback is called only during a tracking session
     broadcasted to all clients, no matter if a session has started by client */
 typedef std::function<void(
-    GnssSvNotification gnssSvNotification
+    const GnssSvNotification& gnssSvNotification
 )> gnssSvCallback;
 
 /* Gives GNSS NMEA data, optional can be NULL
     gnssNmeaCallback is called only during a tracking session
     broadcasted to all clients, no matter if a session has started by client */
 typedef std::function<void(
-    GnssNmeaNotification gnssNmeaNotification
+   const GnssNmeaNotification& gnssNmeaNotification
 )> gnssNmeaCallback;
 
 /* Gives GNSS data, optional can be NULL
     gnssDataCallback is called only during a tracking session
     broadcasted to all clients, no matter if a session has started by client */
 typedef std::function<void(
-    GnssDataNotification gnssDataNotification
+    const GnssDataNotification& gnssDataNotification
 )> gnssDataCallback;
 
 /* Gives GNSS Measurements information, optional can be NULL
     gnssMeasurementsCallback is called only during a tracking session
     broadcasted to all clients, no matter if a session has started by client */
 typedef std::function<void(
-    GnssMeasurementsNotification gnssMeasurementsNotification
+    const GnssMeasurementsNotification& gnssMeasurementsNotification
 )> gnssMeasurementsCallback;
 
 /* Provides the current GNSS configuration to the client */
@@ -2239,8 +3664,22 @@ typedef std::function<void(
    system information update. optional, can be NULL.
 */
 typedef std::function<void(
-    LocationSystemInfo locationSystemInfo
+    const LocationSystemInfo& locationSystemInfo
 )> locationSystemInfoCallback;
+
+/* LocationSystemInfoCb is for receiving rare occuring location
+   system information update. optional, can be NULL.
+*/
+typedef std::function<void(
+   const GnssDcReportInfo& dcReportInfo
+)> gnssDcReportCallback;
+
+/* Informs the framework of the list of GnssSignalTypes the GNSS HAL implementation
+   supports, optional can be NULL
+ */
+typedef std::function<void(
+    const GnssCapabNotification& gnssCapabNotification
+)> gnssSignalTypesCallback;
 
 typedef std::function<void(
 )> locationApiDestroyCompleteCallback;
@@ -2252,59 +3691,105 @@ typedef enum {
     LOCATION_ADAPTER_GEOFENCE_TYPE_BIT  = (1<<2)  // adapter type is geo fence
 } LocationAdapterTypeBits;
 
-typedef struct {
+typedef std::function <void(
+    AGnssExtStatusIpV4 status
+)> agnssStatusIpV4Callback;
+
+
+/* Callback to send ODCPI request to framework */
+typedef std::function<void(
+    const OdcpiRequestInfo& request
+)> odcpiRequestCallback;
+
+/*
+* Callback with Measurement corrections information.
+*/
+typedef std::function<void(
+    GnssMeasurementCorrectionsCapabilitiesMask capabilities
+)> measCorrSetCapabilitiesCallback;
+
+/*
+* Callback with Antenna information.
+*/
+struct AntennaInfoCallback {
+    AntennaInfoCallback() = default;
+    virtual ~AntennaInfoCallback() = default;
+    virtual void operator()(std::vector<GnssAntennaInformation>& gnssAntennaInformations) = 0;
+};
+
+/*
+* Callback with NFW information.
+*/
+typedef std::function<void(
+    const GnssNfwNotification& notification
+)> nfwStatusCallback;
+
+typedef std::function<bool(
+)> isInEmergencySessionCallback;
+typedef std::function<void(uint32_t session_id, XtraStatus xtraStatus)> xtraStatusCallback;
+
+/**
+* Callback used to retrieve energy consumed by modem GNSS
+  engine as defined in GnssEnergyConsumedInfo.
+*/
+typedef std::function<void(
+    const GnssEnergyConsumedInfo& gnssEneryConsumed
+)> gnssEnergyConsumedCallback;
+
+/** Callback to receive OTA ephemeris data reported by MODEM */
+typedef std::function<void(
+    const GnssSvEphemerisReport& svEphemeris
+)> gnssSvEphemerisCallback;
+
+/** Callback to receive NTN config signal mask*/
+typedef std::function<void(LocationError status,
+        const GnssSignalTypeMask& gpsSignalTypeConfigMask)> ntnConfigSignalMaskResponseCb;
+
+typedef std::function<void(const GnssSignalTypeMask& gpsSignalTypeConfigMask)>
+        ntnConfigSignalMaskChangedCb;
+
+struct LocationCallbacks {
     uint32_t size; // set to sizeof(LocationCallbacks)
-    capabilitiesCallback capabilitiesCb;             // mandatory
+    capabilitiesCallback capabilitiesCb;                // mandatory
+    responseCallback responseCb;                        // mandatory
+    collectiveResponseCallback collectiveResponseCb;    // mandatory
+    trackingCallback trackingCb;                        // optional
+    batchingCallback batchingCb;                        // optional
+    geofenceBreachCallback geofenceBreachCb;            // optional
+    geofenceStatusCallback geofenceStatusCb;            // optional
+    gnssLocationInfoCallback gnssLocationInfoCb;        // optional
+    gnssNiCallback gnssNiCb;                            // optional
+    gnssSvCallback gnssSvCb;                            // optional
+    gnssNmeaCallback gnssNmeaCb;                        // optional
+    gnssDataCallback gnssDataCb;                        // optional
+    gnssMeasurementsCallback gnssMeasurementsCb;        // optional
+    gnssMeasurementsCallback gnssNHzMeasurementsCb;     // optional
+    batchingStatusCallback batchingStatusCb;            // optional
+    locationSystemInfoCallback locationSystemInfoCb;    // optional
+    engineLocationsInfoCallback engineLocationsInfoCb;  // optional
+    gnssDcReportCallback gnssDcReportCb;                // optional
+    gnssSignalTypesCallback gnssSignalTypesCb;          // optional
+    gnssNmeaCallback engineNmeaCb;                      // optional
+    gnssSvEphemerisCallback svEphemerisCb;          // optional
+};
+
+struct LocationControlCallbacks {
+    size_t size; // set to sizeof(LocationControlCallbacks)
     responseCallback responseCb;                     // mandatory
     collectiveResponseCallback collectiveResponseCb; // mandatory
-    trackingCallback trackingCb;                     // optional
-    batchingCallback batchingCb;                     // optional
-    geofenceBreachCallback geofenceBreachCb;         // optional
-    geofenceStatusCallback geofenceStatusCb;         // optional
-    gnssLocationInfoCallback gnssLocationInfoCb;     // optional
-    gnssNiCallback gnssNiCb;                         // optional
-    gnssSvCallback gnssSvCb;                         // optional
-    gnssNmeaCallback gnssNmeaCb;                     // optional
-    gnssDataCallback gnssDataCb;                     // optional
-    gnssMeasurementsCallback gnssMeasurementsCb;     // optional
-    gnssMeasurementsCallback gnssNHzMeasurementsCb;  // optional
-    batchingStatusCallback batchingStatusCb;         // optional
-    locationSystemInfoCallback locationSystemInfoCb; // optional
-    engineLocationsInfoCallback engineLocationsInfoCb;     // optional
-} LocationCallbacks;
+    gnssConfigCallback gnssConfigCb;                 // optional
+    odcpiRequestCallback odcpiReqCb;                 //optional
+    measCorrSetCapabilitiesCallback measCorrSetCapabilitiesCb; // optional
+    agnssStatusIpV4Callback   agpsStatusIpV4Cb;      //optional
+    nfwStatusCallback nfwStatusCb;                   // optional
+    isInEmergencySessionCallback isInEmergencyStatusCb; // optional
+    xtraStatusCallback xtraStatusCb;                  // optional
+    ntnConfigSignalMaskResponseCb ntnConfigRespCb;    // optional
+    ntnConfigSignalMaskChangedCb ntnConfigChangedCb;  // optional
+};
 
-typedef struct {
-    uint32_t size;                        // set to sizeof
-    double x;
-    double xUncertainty;
-    double y;
-    double yUncertainty;
-    double z;
-    double zUncertainty;
-} GnssCoordinate;
 
-typedef struct {
-    uint32_t size;                        // set to sizeof
-    double carrierFrequencyMHz;
-    GnssCoordinate phaseCenterOffsetCoordinateMillimeters;
-    std::vector<std::vector<double>> phaseCenterVariationCorrectionMillimeters;
-    std::vector<std::vector<double>> phaseCenterVariationCorrectionUncertaintyMillimeters;
-    std::vector<std::vector<double>> signalGainCorrectionDbi;
-    std::vector<std::vector<double>> signalGainCorrectionUncertaintyDbi;
-} GnssAntennaInformation;
-
-typedef struct {
-    uint32_t size;                        // set to sizeof
-    bool requiresNmeaLocation;
-    std::string hostNameOrIp;    // null terminated string
-    std::string mountPoint;      // null terminated string
-    std::string username;        // null terminated string
-    std::string password;        // null terminated string
-    uint32_t port;
-    bool useSSL;
-} GnssNtripConnectionParams;
-
-typedef struct {
+struct GnssLatencyInfo {
     uint64_t meQtimer1;
     uint64_t meQtimer2;
     uint64_t meQtimer3;
@@ -2320,9 +3805,9 @@ typedef struct {
     uint64_t hlosQtimer3;
     uint64_t hlosQtimer4;
     uint64_t hlosQtimer5;
-} GnssLatencyInfo;
+};
 
-typedef struct {
+struct GnssCivicAddress {
     uint32_t size;
     std::string adminArea;
     std::string countryCode;
@@ -2342,21 +3827,169 @@ typedef struct {
     std::string thoroughfare;
     std::string subThoroughfare;
     std::string url;
-} GnssCivicAddress;
+};
 
 enum PowerStateType {
     POWER_STATE_UNKNOWN = 0,
     POWER_STATE_SUSPEND = 1,
     POWER_STATE_RESUME  = 2,
-    POWER_STATE_SHUTDOWN = 3
+    POWER_STATE_SHUTDOWN = 3,
+    POWER_STATE_DEEP_SLEEP_ENTRY = 4,
+    POWER_STATE_DEEP_SLEEP_EXIT = 5
 };
 
+typedef uint64_t NetworkHandle;
+#define NETWORK_HANDLE_UNKNOWN  ~0
+#define MAX_NETWORK_HANDLES 10
 
-enum {
+enum OdcpiCallbackTypeMaskBits {
     NON_EMERGENCY_ODCPI = (1<<0),
     EMERGENCY_ODCPI =     (1<<1)
-} OdcpiCallbackTypeMaskBits;
+};
 
 typedef uint16_t OdcpiCallbackTypeMask;
+
+enum ModemGnssQesdkFeatureBits {
+    MODEM_QESDK_FEATURE_CARRIER_PHASE     = (1<<0),
+    MODEM_QESDK_FEATURE_SV_POLYNOMIALS    = (1<<1),
+    MODEM_QESDK_FEATURE_DGNSS             = (1<<2),
+    MODEM_QESDK_FEATURE_ROBUST_LOCATION   = (1<<3)
+};
+
+typedef uint64_t ModemGnssQesdkFeatureMask;
+
+/* enum OSNMA New Public Key Type (NPKT) */
+enum mgpOsnmaNpktEnumTypeVal {
+    MGP_OSNMA_NPKT_RESERVED0    = 0, /* reserved 0 */
+    MGP_OSNMA_NPKT_ECDSA_P_256  = 1, /* 1: ECDSA P-256, key length shall be 264 */
+    MGP_OSNMA_NPKT_RESERVED2    = 2, /* reserved 2 */
+    MGP_OSNMA_NPKT_ECDSA_P_521  = 3, /* 3: ECDSA P-521, key length shall be 536 */
+    MGP_OSNMA_NPKT_ALERT        = 4  /* OSNMA Alert Message (OAM) */
+};
+typedef uint8_t mgpOsnmaNpktEnumType;
+
+/* Tree Node structure */
+struct mgpOsnmaTreeNodeT {
+    uint8_t uj; /* the height of the node in the Merkle Tree */
+    uint8_t ui; /* the position of the node in the Merkle Tree level */
+    uint16_t wLengthInBits; /*  the length in bits of the hash in the x_ji element;
+                         shall be 256 */
+    uint8_t uHash[32]; /* Hash of Merkle tree nodes */
+};
+
+/* public key structure */
+struct mgpOsnmaPublicKeyT {
+    uint8_t uFlag; /* 1: valid, 0: invalid */
+    mgpOsnmaNpktEnumType eNpkt; /* Public key type */
+    uint8_t  uNpkId; /* public key ID */
+    uint16_t wKeyLen; /* in bits */
+    uint8_t  uKey[67]; /* max key length is 536 = 8 * 67 */
+    mgpOsnmaTreeNodeT zNodes[4]; /* required Merkle tree nodes at level 0, 1, 2, 3
+                                 zNodes[0] is at level 0;
+                                 zNodes[3] is at level 3 */
+};
+
+/* Hash Function (HF) */
+enum mgpOsnmaHfEnumTypeVal {
+    MGP_OSNMA_HF_SHA_256   = 0, /* 0: SHA-256 */
+    MGP_OSNMA_HF_RESERVED1 = 1, /* 1: reserved */
+    MGP_OSNMA_HF_SHA3_256  = 2, /* 2: SHA3-256 */
+    MGP_OSNMA_HF_RESERVED3 = 3, /* 3: reserved */
+};
+typedef uint8_t mgpOsnmaHfEnumType;
+
+/* Merkle Tree Nodes */
+struct mgpOsnmaMerkleTreeT {
+    uint8_t uFlag; /* 1: valid; 0: invalid */
+    mgpOsnmaHfEnumType eHfType;
+    mgpOsnmaTreeNodeT zRootNode; /* Root Node */
+};
+
+struct mgpOsnmaPublicKeyAndMerkleTreeStruct {
+    mgpOsnmaPublicKeyT   zPublicKey;  /* public key */
+    mgpOsnmaMerkleTreeT  zMerkleTree; /* Merkle Tree Nodes */
+};
+
+typedef void* QDgnssListenerHDL;
+
+typedef std::function<void(
+    bool    sessionActive
+)> QDgnssSessionActiveCb;
+
+typedef uint16_t QDgnss3GppSourceBitMask;
+#define QDGNSS_3GPP_SOURCE_UNKNOWN          0X00
+#define QDGNSS_3GPP_EP_PARSER_AVAIL         0X01
+#define QDGNSS_3GPP_SOURCE_AVAIL            0X02
+#define QDGNSS_3GPP_SOURCE_ACTIVE           0X04
+
+typedef std::function<void(
+    QDgnss3GppSourceBitMask    modem3GppSourceMask
+)> QDgnssModem3GppAvailCb;
+
+enum {
+    LDT_MMF_DATA_VALID_UTC_TIME     = (1<<0),
+    LDT_MMF_DATA_VALID_LAT_DIFF     = (1<<1),
+    LDT_MMF_DATA_VALID_LONG_DIFF    = (1<<2),
+    LDT_MMF_DATA_VALID_TUNNEL       = (1<<3),
+    LDT_MMF_DATA_VALID_BEARING      = (1<<4),
+    LDT_MMF_DATA_VALID_ALTITUDE     = (1<<5),
+    LDT_MMF_DATA_VALID_HOR_ACC      = (1<<6),
+    LDT_MMF_DATA_VALID_ALT_ACC      = (1<<7),
+    LDT_MMF_DATA_VALID_BEARING_ACC  = (1<<8),
+} GnssMmfDataValidity;
+
+struct GnssMapMatchedData {
+    /** Validity fields for MMF data fields to follow
+     *  Flags defined uisng enum GnssMmfDataValidity */
+    uint64_t validityMask;
+
+    /** Unix epoch time of the location fix for which map-match
+     *  feedback is being sent, since the start of the Unix epoch
+     *  (00:00:00 January 1, 1970 UTC).
+     *  Unit: Milli-seconds */
+    uint64_t utcTimestampMs;
+
+    /** Latitude difference = map matched latitude - reported latitude
+     *  Unit: Degrees
+     *  Range: [-90.0, 90.0] */
+    double mapMatchedLatitudeDifference;
+
+    /** Longitude difference = map matched longitude - reported longitude
+     *  Unit: Degrees
+     *  Range: [-180.0, 180.0] */
+    double mapMatchedLongitudeDifference;
+
+    /** Bearing: The horizontal direction of travel of the device with
+     *  respect to north and is unrelated to the device orientation.
+     *  Unit: Degrees
+     *  range: [0, 360) */
+    float bearing;
+
+    /** Absolute Altitude above the WGS 84 reference ellipsoid
+        Unit: meters */
+    double altitude;
+
+    /** Horizontal accuracy radius defined with the
+     *  68th percentile confidence level.
+     *  Unit: meter
+     *  Range: 0 or greater */
+    float horizontalAccuracy;
+
+    /** Altitude accuracy. Defined with 68% confidence level.
+     *  Unit:meter
+     *  Range: 0 or greater */
+    float altitudeAccuracy;
+
+    /** Estimated bearing accuracy defined with
+     *  68 percentile confidence level (1 sigma).
+     *  Unit: Degrees
+     *  Range [0, 360) */
+    float bearingAccuracy;
+
+    /** Road Type. Decision to use the MMF data depends on isTunnel
+     *  Value: True or False */
+    bool isTunnel;
+
+};
 
 #endif /* LOCATIONDATATYPES_H */

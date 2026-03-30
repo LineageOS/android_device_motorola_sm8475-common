@@ -30,7 +30,7 @@
 /*
 Changes from Qualcomm Innovation Center are provided under the following license:
 
-Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted (subject to the limitations in the
@@ -63,6 +63,8 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#define LOG_NDEBUG 0
+#define LOG_TAG "LocSvc_utils_target"
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,6 +85,8 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define MSM8930_ID_2 "116"
 #define APQ8030_ID_1 "157"
 #define APQ8074_ID_1 "184"
+#define SG8350P_ID_1 "682"
+#define SM8650Q_ID_1 "696"
 
 #define LINE_LEN 100
 #define STR_LIQUID      "Liquid"
@@ -274,6 +278,12 @@ unsigned int loc_get_target(void)
     } else if ( !memcmp(baseband, STR_MSM, LENGTH(STR_MSM)) ||
                 !memcmp(baseband, STR_SDM, LENGTH(STR_SDM)) ) {
         gTarget = TARGET_DEFAULT;
+    } else if (!memcmp(rd_id, SG8350P_ID_1, LENGTH(SG8350P_ID_1))
+                && IS_STR_END(rd_id[LENGTH(SG8350P_ID_1)])) {
+        gTarget = TARGET_NO_GNSS;
+    } else if (!memcmp(rd_id, SM8650Q_ID_1, LENGTH(SM8650Q_ID_1))
+                && IS_STR_END(rd_id[LENGTH(SM8650Q_ID_1)])) {
+        gTarget = TARGET_NO_GNSS;
     } else {
         gTarget = TARGET_UNKNOWN;
     }

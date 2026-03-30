@@ -29,7 +29,7 @@ AC_PROG_MAKE_SET
 PKG_PROG_PKG_CONFIG
 
 # Checks for libraries.
-PKG_CHECK_MODULES([GPSUTILS], [gps-utils])
+PKG_CHECK_MODULES([GPSUTILS], [qcom-gps-utils])
 AC_SUBST([GPSUTILS_CFLAGS])
 AC_SUBST([GPSUTILS_LIBS])
 
@@ -73,6 +73,16 @@ if (test "x${with_glib}" = "xyes"); then
 fi
 
 AM_CONDITIONAL(USE_GLIB, test "x${with_glib}" = "xyes")
+
+AC_ARG_ENABLE([ptp],
+        [  --enable-ptp    enable ptp],
+        [case "${enableval}" in
+            yes) ptp=true ;;
+            no)  ptp=false ;;
+            *) AC_MSG_ERROR([bad value ${enableval} for --enable-ptp]) ;;
+        esac],[ptp=false])
+
+AM_CONDITIONAL(PTP_SUPPORTED, [test x$ptp = xtrue])
 
 AC_ARG_WITH([auto_feature],
     AC_HELP_STRING([--with-auto_feature=@<:@dir@:>@],

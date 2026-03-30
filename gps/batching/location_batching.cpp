@@ -26,6 +26,11 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 #include "BatchingAdapter.h"
 #include "location_interface.h"
 
@@ -38,10 +43,11 @@ static void addClient(LocationAPI* client, const LocationCallbacks& callbacks);
 static void removeClient(LocationAPI* client, removeClientCompleteCallback rmClientCb);
 static void requestCapabilities(LocationAPI* client);
 
-static uint32_t startBatching(LocationAPI* client, BatchingOptions&);
+static uint32_t startBatching(LocationAPI* client, const BatchingOptions&);
 static void stopBatching(LocationAPI* client, uint32_t id);
-static void updateBatchingOptions(LocationAPI* client, uint32_t id, BatchingOptions&);
+static void updateBatchingOptions(LocationAPI* client, uint32_t id, const BatchingOptions&);
 static void getBatchedLocations(LocationAPI* client, uint32_t id, size_t count);
+static int32_t getBatchSize(LocationAPI* client);
 static void updateSystemPowerState(PowerStateType systemPowerState);
 
 
@@ -56,6 +62,7 @@ static const BatchingInterface gBatchingInterface = {
     stopBatching,
     updateBatchingOptions,
     getBatchedLocations,
+    getBatchSize,
     updateSystemPowerState
 };
 
@@ -104,7 +111,7 @@ static void requestCapabilities(LocationAPI* client)
     }
 }
 
-static uint32_t startBatching(LocationAPI* client, BatchingOptions &batchOptions)
+static uint32_t startBatching(LocationAPI* client, const BatchingOptions &batchOptions)
 {
     if (NULL != gBatchingAdapter) {
         return gBatchingAdapter->startBatchingCommand(client, batchOptions);
@@ -121,7 +128,7 @@ static void stopBatching(LocationAPI* client, uint32_t id)
 }
 
 static void updateBatchingOptions(
-        LocationAPI* client, uint32_t id, BatchingOptions& batchOptions)
+        LocationAPI* client, uint32_t id, const BatchingOptions& batchOptions)
 {
     if (NULL != gBatchingAdapter) {
         gBatchingAdapter->updateBatchingOptionsCommand(client, id, batchOptions);
@@ -132,6 +139,14 @@ static void getBatchedLocations(LocationAPI* client, uint32_t id, size_t count)
 {
     if (NULL != gBatchingAdapter) {
         gBatchingAdapter->getBatchedLocationsCommand(client, id, count);
+    }
+}
+
+static int32_t getBatchSize(LocationAPI* client) {
+    if (NULL != gBatchingAdapter) {
+        return gBatchingAdapter->getBatchSizeCommand(client);
+    } else {
+        return 0;
     }
 }
 

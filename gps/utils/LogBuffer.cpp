@@ -27,6 +27,42 @@
  *
  */
 
+/*
+Changes from Qualcomm Innovation Center are provided under the following license:
+
+Copyright (c) 2022, 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted (subject to the limitations in the
+disclaimer below) provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 #include "LogBuffer.h"
 #ifdef USE_GLIB
 #include <execinfo.h>
@@ -49,6 +85,7 @@ LogBuffer* LogBuffer::getInstance() {
         lock_guard<mutex> guard(sLock);
         if (mInstance == nullptr) {
             mInstance = new LogBuffer();
+            mInstance->setLogBufferConfig();
         }
     }
     return mInstance;
@@ -57,21 +94,6 @@ LogBuffer* LogBuffer::getInstance() {
 LogBuffer::LogBuffer(): mLogList(TOTAL_LOG_LEVELS),
         mConfigVec(TOTAL_LOG_LEVELS, ConfigsInLevel(TIME_DEPTH_THRESHOLD_MINIMAL_IN_SEC,
                     MAXIMUM_NUM_IN_LIST, 0)) {
-    loc_param_s_type log_buff_config_table[] =
-    {
-        {"E_LEVEL_TIME_DEPTH",      &mConfigVec[0].mTimeDepthThres,  NULL, 'n'},
-        {"E_LEVEL_MAX_CAPACITY",    &mConfigVec[0].mMaxNumThres,     NULL, 'n'},
-        {"W_LEVEL_TIME_DEPTH",      &mConfigVec[1].mTimeDepthThres,  NULL, 'n'},
-        {"W_LEVEL_MAX_CAPACITY",    &mConfigVec[1].mMaxNumThres,     NULL, 'n'},
-        {"I_LEVEL_TIME_DEPTH",      &mConfigVec[2].mTimeDepthThres,  NULL, 'n'},
-        {"I_LEVEL_MAX_CAPACITY",    &mConfigVec[2].mMaxNumThres,     NULL, 'n'},
-        {"D_LEVEL_TIME_DEPTH",      &mConfigVec[3].mTimeDepthThres,  NULL, 'n'},
-        {"D_LEVEL_MAX_CAPACITY",    &mConfigVec[3].mMaxNumThres,     NULL, 'n'},
-        {"V_LEVEL_TIME_DEPTH",      &mConfigVec[4].mTimeDepthThres,  NULL, 'n'},
-        {"V_LEVEL_MAX_CAPACITY",    &mConfigVec[4].mMaxNumThres,     NULL, 'n'},
-    };
-    loc_read_conf(LOC_PATH_GPS_CONF_STR, log_buff_config_table,
-            sizeof(log_buff_config_table)/sizeof(log_buff_config_table[0]));
     registerSignalHandler();
 }
 
@@ -133,6 +155,24 @@ void LogBuffer::flush() {
     mLogList.flush();
 }
 
+void LogBuffer::setLogBufferConfig() {
+    loc_param_s_type log_buff_config_table[] =
+    {
+        {"E_LEVEL_TIME_DEPTH",      &mConfigVec[0].mTimeDepthThres,  NULL, 'n'},
+        {"E_LEVEL_MAX_CAPACITY",    &mConfigVec[0].mMaxNumThres,     NULL, 'n'},
+        {"W_LEVEL_TIME_DEPTH",      &mConfigVec[1].mTimeDepthThres,  NULL, 'n'},
+        {"W_LEVEL_MAX_CAPACITY",    &mConfigVec[1].mMaxNumThres,     NULL, 'n'},
+        {"I_LEVEL_TIME_DEPTH",      &mConfigVec[2].mTimeDepthThres,  NULL, 'n'},
+        {"I_LEVEL_MAX_CAPACITY",    &mConfigVec[2].mMaxNumThres,     NULL, 'n'},
+        {"D_LEVEL_TIME_DEPTH",      &mConfigVec[3].mTimeDepthThres,  NULL, 'n'},
+        {"D_LEVEL_MAX_CAPACITY",    &mConfigVec[3].mMaxNumThres,     NULL, 'n'},
+        {"V_LEVEL_TIME_DEPTH",      &mConfigVec[4].mTimeDepthThres,  NULL, 'n'},
+        {"V_LEVEL_MAX_CAPACITY",    &mConfigVec[4].mMaxNumThres,     NULL, 'n'},
+    };
+    loc_read_conf(LOC_PATH_GPS_CONF_STR, log_buff_config_table,
+            sizeof(log_buff_config_table)/sizeof(log_buff_config_table[0]));
+}
+
 void LogBuffer::registerSignalHandler() {
     ALOGE("Singal handler registered");
     mNewSigAction.sa_sigaction = &LogBuffer::signalHandler;
@@ -174,10 +214,15 @@ void LogBuffer::signalHandler(const int code, siginfo_t *const si, void *const s
     time_t now = time(NULL);
     struct tm *curr_time = localtime(&now);
     char path[50];
+    struct tm zero_time;
+    memset(&zero_time, 0, sizeof(zero_time));
+
+    if (nullptr == curr_time) {
+        curr_time = &zero_time;
+    }
     snprintf(path, 50, LOG_BUFFER_FILE_PATH "gpslog_%d%d%d-%d%d%d.log",
             (1900 + curr_time->tm_year), ( 1 + curr_time->tm_mon), curr_time->tm_mday,
             curr_time->tm_hour, curr_time->tm_min, curr_time->tm_sec);
-
     mInstance->dumpToLogFile(path);
 
     //Process won't be terminated if SIGUSR1 is recieved

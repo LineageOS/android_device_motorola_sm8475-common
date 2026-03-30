@@ -8,23 +8,43 @@ cc_library_shared {
         "GnssConfiguration.cpp",
         "GnssPowerIndication.cpp",
         "GnssMeasurementInterface.cpp",
+        "GnssBatching.cpp",
+        "GnssGeofence.cpp",
+        "AGnss.cpp",
+        "AGnssRil.cpp",
+        "GnssDebug.cpp",
+        "GnssAntennaInfo.cpp",
+        "MeasurementCorrectionsInterface.cpp",
+        "GnssVisibilityControl.cpp",
         "location_api/GnssAPIClient.cpp",
+        "location_api/BatchingAPIClient.cpp",
+        "location_api/GeofenceAPIClient.cpp",
+        "location_api/LocationUtil.cpp",
     ],
 
     header_libs: [
         "libgps.utils_headers",
         "libloc_core_headers",
         "libloc_pla_headers",
+        "liblocbatterylistener_headers",
         "liblocation_api_headers",
     ],
+
+    local_include_dirs: ["location_api"],
+
+    static_libs: ["liblocbatterylistener"] + ["libhealthhalutils"],
 
     shared_libs: [
         "libbase",
         "libbinder_ndk",
-        "android.hardware.gnss-V1-ndk",
+        "android.hardware.gnss-V4-ndk",
+        "android.hardware.health-V1-ndk",
+        "android.hardware.health@1.0",
+        "android.hardware.health@2.0",
+        "android.hardware.health@2.1",
+        "libhidlbase",
         "liblog",
         "libcutils",
-        "libqti_vndfwk_detect_vendor",
         "libutils",
         "libloc_core",
         "libgps.utils",
@@ -32,7 +52,7 @@ cc_library_shared {
         "liblocation_api",
     ],
 
-    cflags: GNSS_CFLAGS,
+    cflags: ["-Wno-format"] + GNSS_CFLAGS,
 }
 
 cc_binary {
@@ -62,11 +82,7 @@ cc_binary {
         "libbinder_ndk",
     ] + [
         "libhidlbase",
-        "android.hardware.gnss@1.0",
-        "android.hardware.gnss@1.1",
-        "android.hardware.gnss@2.0",
-        "android.hardware.gnss@2.1",
-        "android.hardware.gnss-V1-ndk",
+        "android.hardware.gnss-V4-ndk",
         "android.hardware.gnss-aidl-impl-qti",
     ],
 
