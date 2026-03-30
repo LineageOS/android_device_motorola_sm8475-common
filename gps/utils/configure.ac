@@ -1,11 +1,11 @@
-# configure.ac -- Autoconf script for gps gps-utils
+# configure.ac -- Autoconf script for gps qcom-gps-utils
 #
 # Process this file with autoconf to produce a configure script
 
 # Requires autoconf tool later than 2.61
 AC_PREREQ(2.61)
-# Initialize the gps gps-utils package version 1.0.0
-AC_INIT([gps-utils],1.0.0)
+# Initialize the gps qcom-gps-utils package version 1.0.0
+AC_INIT([qcom-gps-utils],1.0.0)
 # Does not strictly follow GNU Coding standards
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 # Disables auto rebuilding of configure, Makefile.ins
@@ -86,7 +86,7 @@ AM_CONDITIONAL(USE_GLIB, test "x${with_glib}" = "xyes")
 
 AC_CONFIG_FILES([ \
         Makefile \
-        gps-utils.pc
+        qcom-gps-utils.pc
         ])
 
 AC_OUTPUT

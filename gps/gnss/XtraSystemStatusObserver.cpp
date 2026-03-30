@@ -30,7 +30,7 @@
 /*
 Changes from Qualcomm Innovation Center are provided under the following license:
 
-Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted (subject to the limitations in the
@@ -62,6 +62,7 @@ IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+
 #define LOG_TAG "LocSvc_XtraSystemStatusObs"
 
 #include <sys/stat.h>
@@ -79,11 +80,12 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <SystemStatus.h>
 #include <vector>
 #include <sstream>
-#include <XtraSystemStatusObserver.h>
 #include <LocAdapterBase.h>
 #include <DataItemId.h>
 #include <DataItemsFactoryProxy.h>
 #include <DataItemConcreteTypes.h>
+#include <GnssAdapter.h>
+#include <XtraSystemStatusObserver.h>
 
 using namespace loc_util;
 using namespace loc_core;
@@ -101,8 +103,8 @@ public:
     inline XtraIpcListener(IOsObserver* observer, const MsgTask* msgTask,
                            XtraSystemStatusObserver& xsso) :
             mSystemStatusObsrvr(observer), mMsgTask(msgTask), mXSSO(xsso) {}
-    virtual void onReceive(const char* data, uint32_t length __unused,
-                           const LocIpcRecver* recver __unused) override {
+    virtual void onReceive(const char* data, uint32_t length,
+                           const LocIpcRecver* recver) override {
 #define STRNCMP(str, constStr) strncmp(str, constStr, sizeof(constStr)-1)
         if (!STRNCMP(data, "ping")) {
             LOC_LOGd("ping received");
@@ -142,27 +144,59 @@ public:
                     if (0 == mSocketName.compare(LOC_IPC_DGNSS)) {
                         mXSSO.restartDgnssSource();
                     }
+                    mXSSO.registerXtraStatusUpdate(0, mXSSO.mRegisterForXtraStatus);
                 }
             };
             mMsgTask->sendMsg(new HandleStatusRequestMsg(mXSSO, xtraStatusUpdated, socketName));
+        } else if (!STRNCMP(data, "xtraStatusUpdate")) {
+            uint32_t sessionId = 0;
+            uint8_t downloadReason[XTRA_STATS_DL_REASON_CODE_MAX_LEN];
+            XtraStatusUpdateType updateType = XTRA_STATUS_UPDATE_UNDEFINED;
+            GnssConfig gnssConfig = {};
+            gnssConfig.size = sizeof(gnssConfig);
+            gnssConfig.flags = GNSS_CONFIG_FLAGS_XTRA_STATUS_BIT;
+            sscanf(data, "%*s %d %d %d %d %d %63s %d", &sessionId, &updateType,
+                   (int *)&gnssConfig.xtraStatus.featureEnabled,
+                   &gnssConfig.xtraStatus.xtraDataStatus,
+                   &gnssConfig.xtraStatus.xtraValidForHours,
+                   &downloadReason[0], (int *)&gnssConfig.xtraStatus.userConsentStatus);
+            std::string lastDownloadReason((char *) &downloadReason[0]);
+            gnssConfig.xtraStatus.lastDownloadReasonCode = lastDownloadReason;
+            mXSSO.mAdapter->reportGnssConfigEvent(sessionId, gnssConfig);
+        } else if (!STRNCMP(data, "xtraMpDisabled")) {
+            mXSSO.mAdapter->reportXtraMpDisabledEvent();
+        } else if (!STRNCMP(data, "setConstellation")) {
+            GnssSvTypeConfig constellationsConfig;
+            constellationsConfig.size = sizeof(GnssSvTypeConfig);
+
+            sscanf(data, "%*s %" PRIu64 " %" PRIu64, &constellationsConfig.enabledSvTypesMask,
+                    &constellationsConfig.blacklistedSvTypesMask);
+            mXSSO.mAdapter->gnssUpdateSvTypeConfigCommand(constellationsConfig,
+                    SV_TYPE_CONFIG_FROM_XTRA);
         } else {
             LOC_LOGw("unknown event: %s", data);
         }
     }
 };
 
-XtraSystemStatusObserver::XtraSystemStatusObserver(IOsObserver* sysStatObs,
+XtraSystemStatusObserver::XtraSystemStatusObserver(GnssAdapter* adapter,
+                                                   IOsObserver* sysStatObs,
                                                    const MsgTask* msgTask) :
-        mSystemStatusObsrvr(sysStatObs), mMsgTask(msgTask),
+        mAdapter(adapter), mSystemStatusObsrvr(sysStatObs), mMsgTask(msgTask),
         mGpsLock(-1), mConnections(~0), mRoaming(false), mXtraThrottle(true),
         mReqStatusReceived(false),
         mIsConnectivityStatusKnown(false),
         mXtraSender(LocIpc::getLocIpcLocalSender(LOC_IPC_XTRA)),
         mDgnssSender(LocIpc::getLocIpcLocalSender(LOC_IPC_DGNSS)),
+        mRegisterForXtraStatus(false),
         mDelayLocTimer(*mXtraSender, *mDgnssSender) {
     subscribe(true);
+}
+
+void XtraSystemStatusObserver::init() {
+    locUtilWaitForDir(SOCKET_DIR_LOCATION);
     auto recver = LocIpc::getLocIpcLocalRecver(
-            make_shared<XtraIpcListener>(sysStatObs, msgTask, *this),
+            make_shared<XtraIpcListener>(mSystemStatusObsrvr, mMsgTask, *this),
             LOC_IPC_HAL);
     mIpc.startNonBlockingListening(recver);
     mDelayLocTimer.start(100 /*.1 sec*/,  false);
@@ -172,6 +206,14 @@ bool XtraSystemStatusObserver::updateLockStatus(GnssConfigGpsLock lock) {
     // mask NI(NFW bit) since from XTRA's standpoint GPS is enabled if
     // MO(AFW bit) is enabled and disabled when MO is disabled
     mGpsLock = lock & ~GNSS_CONFIG_GPS_LOCK_NFW_ALL;
+
+    if (ContextBase::mGps_conf.GNSS_DEPLOYMENT == PDS_API_ENABLED) {
+       mGpsLock = mGpsLock & ~GNSS_CONFIG_GPS_LOCK_MO;
+    }
+
+    LOC_LOGd("gnss deployment %d, in lock 0x%x, out lock 0x%x",
+             ContextBase::mGps_conf.GNSS_DEPLOYMENT, lock,
+             mGpsLock);
 
     if (!mReqStatusReceived) {
         return true;
@@ -220,22 +262,8 @@ bool XtraSystemStatusObserver::updateConnections(uint64_t allConnections,
     return ( LocIpc::send(*mXtraSender, (const uint8_t*)s.data(), s.size()));
 }
 
-bool XtraSystemStatusObserver::updateTac(const string& tac) {
-    mTac = tac;
-
-    if (!mReqStatusReceived) {
-        return true;
-    }
-
-    stringstream ss;
-    ss <<  "tac";
-    ss << " " << tac.c_str();
-    string s = ss.str();
-    return ( LocIpc::send(*mXtraSender, (const uint8_t*)s.data(), s.size()) );
-}
-
-bool XtraSystemStatusObserver::updateMccMnc(const string& mccmnc) {
-    mMccmnc = mccmnc;
+bool XtraSystemStatusObserver::updateMccMnc(const string& mccmncCountry) {
+    mMccmnc = mccmncCountry;
 
     if (!mReqStatusReceived) {
         return true;
@@ -243,7 +271,7 @@ bool XtraSystemStatusObserver::updateMccMnc(const string& mccmnc) {
 
     stringstream ss;
     ss <<  "mncmcc";
-    ss << " " << mccmnc.c_str();
+    ss << " " << mccmncCountry.c_str();
     string s = ss.str();
     return ( LocIpc::send(*mXtraSender, (const uint8_t*)s.data(), s.size()) );
 }
@@ -271,6 +299,46 @@ bool XtraSystemStatusObserver::notifySessionStart() {
     return ( LocIpc::send(*mXtraSender, (const uint8_t*)s.data(), s.size()) );
 }
 
+bool XtraSystemStatusObserver::updatePowerState(const PowerStateType powerState) {
+
+    if (mPowerState == powerState) {
+        return true;
+    }
+
+    mPowerState = powerState;
+
+    if (!mReqStatusReceived) {
+        return true;
+    }
+
+    int32_t pState = -1;
+    switch (mPowerState) {
+        case POWER_STATE_UNKNOWN:
+            pState = 0;
+            break;
+        case POWER_STATE_DEEP_SLEEP_ENTRY:
+        case POWER_STATE_SUSPEND:
+            pState = 1;
+            break;
+        case POWER_STATE_DEEP_SLEEP_EXIT:
+        case POWER_STATE_RESUME:
+            pState = 2;
+            break;
+        case POWER_STATE_SHUTDOWN:
+            pState = 3;
+            break;
+        default:
+            LOC_LOGd("Invalid power state %d", mPowerState);
+            break;
+    };
+
+    stringstream ss;
+    ss <<  "powerstate";
+    ss << " " << pState;
+    string s = ss.str();
+    return ( LocIpc::send(*mXtraSender, (const uint8_t*)s.data(), s.size()) );
+}
+
 inline bool XtraSystemStatusObserver::onStatusRequested(int32_t statusUpdated) {
     mReqStatusReceived = true;
 
@@ -293,7 +361,7 @@ inline bool XtraSystemStatusObserver::onStatusRequested(int32_t statusUpdated) {
             << mNetworkHandle[7].toString() << endl
             << mNetworkHandle[8].toString() << endl
             << mNetworkHandle[MAX_NETWORK_HANDLES-1].toString() << endl
-            << mTac << endl << mMccmnc << endl << mIsConnectivityStatusKnown;
+            << mMccmnc << endl << mIsConnectivityStatusKnown;
 
     string s = ss.str();
     LocIpc::send(*mDgnssSender, (const uint8_t*)s.data(), s.size());
@@ -311,6 +379,7 @@ void XtraSystemStatusObserver::startDgnssSource(const StartDgnssNtripParams& par
     ss << ntripParams->mountPoint.data() << endl;
     ss << ntripParams->username.data() << endl;
     ss << ntripParams->password.data() << endl;
+    ss << params.enableRTKEngine << endl;
     if (ntripParams->requiresNmeaLocation && !params.nmea.empty()) {
         ss << params.nmea.data() << endl;
     }
@@ -349,20 +418,130 @@ void XtraSystemStatusObserver::updateNmeaToDgnssServer(const string& nmea)
     LocIpc::send(*mDgnssSender, (const uint8_t*)s.data(), s.size());
 }
 
+bool XtraSystemStatusObserver::updateXtraConfig(bool enable, const XtraConfigParams& configParams) {
+    if (!mReqStatusReceived) {
+        return false;
+    }
+
+    stringstream ss;
+    ss << "xtraConfig" << endl;
+    ss << (enable ? 1 : 0) << endl;
+    if (enable == true) {
+        ss << configParams.xtraDownloadIntervalMinute << endl;
+        ss << configParams.xtraDownloadTimeoutSec << endl;
+        ss << configParams.xtraDownloadRetryIntervalMinute << endl;
+        ss << configParams.xtraDownloadRetryAttempts << endl;
+        ss << configParams.xtraCaPath << endl;
+
+        if (configParams.xtraServerURLsCount == 2 ||
+                configParams.ntpServerURLsCount == 2) {
+             srand(time(0));
+        }
+        if (configParams.xtraServerURLsCount == 1) {
+            ss << configParams.xtraServerURLs[0] << endl;
+            ss << configParams.xtraServerURLs[0] << endl;
+            ss << configParams.xtraServerURLs[0] << endl;
+        } else if (configParams.xtraServerURLsCount == 2) {
+            ss << configParams.xtraServerURLs[0] << endl;
+            ss << configParams.xtraServerURLs[1] << endl;
+            int index = rand() % 2;
+            ss << configParams.xtraServerURLs[index] << endl;
+        } else {
+            ss << configParams.xtraServerURLs[0] << endl;
+            ss << configParams.xtraServerURLs[1] << endl;
+            ss << configParams.xtraServerURLs[2] << endl;
+        }
+
+        if (configParams.ntpServerURLsCount == 1) {
+            ss << configParams.ntpServerURLs[0] << endl;
+            ss << configParams.ntpServerURLs[0] << endl;
+            ss << configParams.ntpServerURLs[0] << endl;
+        } else if (configParams.ntpServerURLsCount == 2) {
+            ss << configParams.ntpServerURLs[0] << endl;
+            ss << configParams.ntpServerURLs[1] << endl;
+            int index = rand() % 2;
+            ss << configParams.ntpServerURLs[index] << endl;
+        } else {
+            ss << configParams.ntpServerURLs[0] << endl;
+            ss << configParams.ntpServerURLs[1] << endl;
+            ss << configParams.ntpServerURLs[2] << endl;
+        }
+        ss << configParams.xtraIntegrityDownloadEnable << endl;
+        ss << configParams.xtraIntegrityDownloadIntervalMinute << endl;
+        ss << configParams.xtraDaemonDebugLogLevel << endl;
+        ss << configParams.ntsKeServerURL << endl;
+        ss << configParams.xtraDaemonDiagLoggingStatus << endl;
+    }
+
+    string s = ss.str();
+    LOC_LOGd("config params: %s", s.c_str());
+    return ( LocIpc::send(*mXtraSender, (const uint8_t*)s.data(), s.size()) );
+}
+
+bool XtraSystemStatusObserver::getXtraStatus(uint32_t sessionId) {
+    if (!mReqStatusReceived) {
+        return false;
+    }
+
+    stringstream ss;
+    ss << "getXtraStatus" << endl;
+    ss << sessionId <<endl;
+
+    string s = ss.str();
+    return ( LocIpc::send(*mXtraSender, (const uint8_t*)s.data(), s.size()) );
+}
+
+bool XtraSystemStatusObserver::registerXtraStatusUpdate(uint32_t sessionId,
+                                                        bool registerUpdate) {
+    if (!mReqStatusReceived) {
+        return false;
+    }
+
+    mRegisterForXtraStatus = registerUpdate;
+
+    stringstream ss;
+    ss << "registerXtraStatusUpdate" << endl;
+    ss << sessionId << endl;
+    ss << registerUpdate << endl;
+
+    string s = ss.str();
+    return ( LocIpc::send(*mXtraSender, (const uint8_t*)s.data(), s.size()) );
+}
+
+bool XtraSystemStatusObserver::updateXtraDataDeletion() {
+    if (!mReqStatusReceived) {
+        return false;
+    }
+
+    stringstream ss;
+    ss << "updateXtraDataDeletion" << endl;
+
+    string s = ss.str();
+    return ( LocIpc::send(*mXtraSender, (const uint8_t*)s.data(), s.size()) );
+}
+
+bool XtraSystemStatusObserver::set3rdPartyNtnCapability(bool enabled) {
+    if (!mReqStatusReceived) {
+        return false;
+    }
+
+    stringstream ss;
+    ss << "setExternalNtnCapability" << endl;
+    ss << " " << (enabled ? 1 : 0);
+    string s = ss.str();
+    return ( LocIpc::send(*mXtraSender, (const uint8_t*)s.data(), s.size()) );
+}
+
 void XtraSystemStatusObserver::subscribe(bool yes)
 {
     // Subscription data unordered_set
-    unordered_set<DataItemId> subItemIdSet;
-    subItemIdSet.insert(NETWORKINFO_DATA_ITEM_ID);
-    subItemIdSet.insert(MCCMNC_DATA_ITEM_ID);
+    unordered_set<DataItemId> subItemIdSet = {
+            NETWORKINFO_DATA_ITEM_ID,
+            MCCMNC_DATA_ITEM_ID,
+            TRACKING_STARTED_DATA_ITEM_ID};
 
     if (yes) {
         mSystemStatusObsrvr->subscribe(subItemIdSet, this);
-        unordered_set<DataItemId> reqItemIdSet;
-        reqItemIdSet.insert(TAC_DATA_ITEM_ID);
-
-        mSystemStatusObsrvr->requestData(reqItemIdSet, this);
-
     } else {
         mSystemStatusObsrvr->unsubscribe(subItemIdSet, this);
     }
@@ -416,17 +595,20 @@ void XtraSystemStatusObserver::notify(const unordered_set<IDataItemCore*>& dlist
                     }
                     break;
 
-                    case TAC_DATA_ITEM_ID:
-                    {
-                        TacDataItem* tac = static_cast<TacDataItem*>(each);
-                        mXtraSysStatObj->updateTac(tac->mValue);
-                    }
-                    break;
-
                     case MCCMNC_DATA_ITEM_ID:
                     {
                         MccmncDataItem* mccmnc = static_cast<MccmncDataItem*>(each);
                         mXtraSysStatObj->updateMccMnc(mccmnc->mValue);
+                    }
+                    break;
+
+                    case TRACKING_STARTED_DATA_ITEM_ID:
+                    {
+                        TrackingStartedDataItem* trackingStarted =
+                                static_cast<TrackingStartedDataItem*>(each);
+                        if (trackingStarted->mTrackingStarted) {
+                            mXtraSysStatObj->notifySessionStart();
+                        }
                     }
                     break;
 
@@ -437,4 +619,13 @@ void XtraSystemStatusObserver::notify(const unordered_set<IDataItemCore*>& dlist
         }
     };
     mMsgTask->sendMsg(new (nothrow) HandleOsObserverUpdateMsg(this, dlist));
+}
+
+bool XtraSystemStatusObserver::updateXtraUserConsent(bool userConsent){
+    stringstream ss;
+    ss << "XtraEndUserConsent" << endl;
+    ss << (userConsent ? 1 : 0) << endl;
+    string s = ss.str();
+    LOC_LOGd("XtraEndUserConsent: %s", s.c_str());
+    return ( LocIpc::send(*mXtraSender, (const uint8_t*)s.data(), s.size()) );
 }

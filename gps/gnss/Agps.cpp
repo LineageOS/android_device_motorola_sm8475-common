@@ -26,6 +26,43 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+
+/*
+Changes from Qualcomm Innovation Center are provided under the following license:
+
+Copyright (c) 2022-2024, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted (subject to the limitations in the
+disclaimer below) provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 #define LOG_NDEBUG 0
 #define LOG_TAG "LocSvc_Agps"
 
@@ -34,6 +71,34 @@
 #include <ContextBase.h>
 #include <loc_timer.h>
 #include <inttypes.h>
+
+/* --------------------------------------------------------------------
+ *   ATL Timeout Handling
+ * -------------------------------------------------------------------*/
+
+// Called in the context of LocTimer thread
+void AtlTimer::timeOutCallback()
+{
+    if (nullptr != mAgpsManager) {
+        mAgpsManager->atlTimerExpiredEvent();
+    }
+}
+// Called in the context of LocTimer thread
+void AgpsManager::atlTimerExpiredEvent()
+{
+    struct MsgAtlTimerExpire : public LocMsg {
+        AgpsManager& mAgpsManager;
+        inline MsgAtlTimerExpire(AgpsManager& agpsManager) :
+                LocMsg(),
+                mAgpsManager(agpsManager){}
+        inline virtual void proc() const {
+            mAgpsManager.processAltTimerExpiredEvent();
+        }
+    };
+    if (mMsgTask != NULL) {
+        mMsgTask->sendMsg(new MsgAtlTimerExpire(*this));
+    }
+}
 
 /* --------------------------------------------------------------------
  *   AGPS State Machine Methods
@@ -65,6 +130,10 @@ void AgpsStateMachine::processAgpsEvent(AgpsEvent event){
             processAgpsEventDenied();
             break;
 
+        case AGPS_EVENT_TIMEOUT:
+            processAgpsEventTimeout();
+            break;
+
         default:
             LOC_LOGE("Invalid Loc Agps Event");
     }
@@ -78,6 +147,7 @@ void AgpsStateMachine::processAgpsEventSubscribe(){
             /* Add subscriber to list
              * No notifications until we get RSRC_GRANTED */
             addSubscriber(mCurrentSubscriber);
+            mAtlTimer.restart(mAtlTimeoutMsec);
             requestOrReleaseDataConn(true);
             transitionState(AGPS_STATE_PENDING);
             break;
@@ -133,12 +203,14 @@ void AgpsStateMachine::processAgpsEventUnsubscribe(){
             /* If no subscribers in list, release data connection */
             if (mSubscriberList.empty()) {
                 transitionState(AGPS_STATE_RELEASED);
+                mAtlTimer.restart(mAtlTimeoutMsec);
                 requestOrReleaseDataConn(false);
             }
             /* Some subscribers in list, but all inactive;
              * Release data connection */
             else if(!anyActiveSubscribers()) {
                 transitionState(AGPS_STATE_RELEASING);
+                mAtlTimer.restart(mAtlTimeoutMsec);
                 requestOrReleaseDataConn(false);
             }
             break;
@@ -223,6 +295,7 @@ void AgpsStateMachine::processAgpsEventReleased(){
              * data conn setup */
             if (anyActiveSubscribers()) {
                 transitionState(AGPS_STATE_PENDING);
+                mAtlTimer.restart(mAtlTimeoutMsec);
                 requestOrReleaseDataConn(true);
             }
             /* No active subscribers, move to released state */
@@ -262,6 +335,7 @@ void AgpsStateMachine::processAgpsEventDenied(){
              * data conn setup */
             if (anyActiveSubscribers()) {
                 transitionState(AGPS_STATE_PENDING);
+                mAtlTimer.start(mAtlTimeoutMsec);
                 requestOrReleaseDataConn(true);
             }
             /* No active subscribers, move to released state */
@@ -282,6 +356,52 @@ void AgpsStateMachine::processAgpsEventDenied(){
     }
 }
 
+void AgpsStateMachine::processAgpsEventTimeout(){
+
+    LOC_LOGE("Entered timeout event mState %d", mState);
+    switch (mState) {
+
+        case AGPS_STATE_RELEASED:
+            /* NOOP */
+            break;
+
+        case AGPS_STATE_ACQUIRED:
+            LOC_LOGE("Unexpected event TIMEOUT in state %d", mState);
+            break;
+
+        case AGPS_STATE_RELEASING:
+            /* Notify all inactive subscribers about the event */
+            notifyAllSubscribers(
+                    AGPS_EVENT_RELEASED, true,
+                    AGPS_NOTIFICATION_TYPE_FOR_INACTIVE_SUBSCRIBERS);
+
+            /* If we have active subscribers now, they must be waiting for
+             * data conn setup */
+            if (anyActiveSubscribers()) {
+                transitionState(AGPS_STATE_PENDING);
+                mAtlTimer.restart(mAtlTimeoutMsec);
+                requestOrReleaseDataConn(true);
+            }
+            /* No active subscribers, move to released state */
+            else {
+                transitionState(AGPS_STATE_RELEASED);
+            }
+            break;
+
+        case AGPS_STATE_PENDING:
+            transitionState(AGPS_STATE_RELEASED);
+            notifyAllSubscribers(AGPS_EVENT_DENIED, true,
+                AGPS_NOTIFICATION_TYPE_FOR_ALL_SUBSCRIBERS);
+            /* not starting timer here, as modem is not waiting for close here and release()
+             * is just additional check to not have any open datacall at frameworkend */
+            requestOrReleaseDataConn(false);
+            break;
+
+        default:
+            LOC_LOGE("Invalid state: %d", mState);
+    }
+}
+
 /* Request or Release data connection
  * bool request :
  *      true  = Request data connection
@@ -291,21 +411,25 @@ void AgpsStateMachine::requestOrReleaseDataConn(bool request){
     AGnssExtStatusIpV4 nifRequest;
     memset(&nifRequest, 0, sizeof(nifRequest));
 
-    nifRequest.type = mAgpsType;
+    nifRequest.type = (AGpsType) mAgpsType;
     nifRequest.apnTypeMask = mApnTypeMask;
     nifRequest.subId = mSubId;
     if (request) {
         LOC_LOGD("AGPS Data Conn Request mAgpsType=%d mApnTypeMask=0x%X",
                  mAgpsType, mApnTypeMask);
-        nifRequest.status = LOC_GPS_REQUEST_AGPS_DATA_CONN;
+        nifRequest.status = AGPS_REQUEST_AGPS_DATA_CONN;
     }
     else{
         LOC_LOGD("AGPS Data Conn Release mAgpsType=%d mApnTypeMask=0x%X",
                  mAgpsType, mApnTypeMask);
-        nifRequest.status = LOC_GPS_RELEASE_AGPS_DATA_CONN;
+        nifRequest.status = AGPS_RELEASE_AGPS_DATA_CONN;
     }
 
-    mFrameworkStatusV4Cb(nifRequest);
+    if (mFrameworkStatusV4Cb) {
+        mFrameworkStatusV4Cb(nifRequest);
+    } else {
+        LOC_LOGe("mFrameworkStatusV4Cb is not set");
+    }
 }
 
 void AgpsStateMachine::notifyAllSubscribers(
@@ -504,6 +628,11 @@ void AgpsStateMachine::dropAllSubscribers(){
         it = mSubscriberList.erase(it);
         delete subscriber;
     }
+    // release data connection since no subscribers in list
+    transitionState(AGPS_STATE_RELEASED);
+
+    stopAtlTimer();
+    requestOrReleaseDataConn(false);
 }
 
 /* --------------------------------------------------------------------
@@ -521,16 +650,20 @@ void AgpsManager::createAgpsStateMachines(const AgpsCbInfo& cbInfo) {
                     (loc_core::ContextBase::mGps_conf.CAPABILITIES & LOC_GPS_CAPABILITY_MSB));
 
     if (NULL == mInternetNif && (cbInfo.atlType & AGPS_ATL_TYPE_WWAN)) {
-        mInternetNif = new AgpsStateMachine(this, LOC_AGPS_TYPE_WWAN_ANY);
-        mInternetNif->registerFrameworkStatusCallback((AgnssStatusIpV4Cb)cbInfo.statusV4Cb);
+        mInternetNif = new AgpsStateMachine(this, AGPS_TYPE_WWAN_ANY);
+        mInternetNif->registerFrameworkStatusCallback((agnssStatusIpV4Callback)cbInfo.statusV4Cb);
         LOC_LOGD("Internet NIF: %p", mInternetNif);
     }
     if (agpsCapable) {
         if (NULL == mAgnssNif && (cbInfo.atlType & AGPS_ATL_TYPE_SUPL) &&
                 (cbInfo.atlType & AGPS_ATL_TYPE_SUPL_ES)) {
-            mAgnssNif = new AgpsStateMachine(this, LOC_AGPS_TYPE_SUPL);
-            mAgnssNif->registerFrameworkStatusCallback((AgnssStatusIpV4Cb)cbInfo.statusV4Cb);
-            LOC_LOGD("AGNSS NIF: %p", mAgnssNif);
+            mAgnssNif = new AgpsStateMachine(this, AGPS_TYPE_SUPL);
+            LOC_LOGd("AGNSS NIF: %p", mAgnssNif);
+        }
+        LOC_LOGd("cbInfo.cbPriority=%d mCbPriority=%d", cbInfo.cbPriority, mCbPriority);
+        if (cbInfo.cbPriority > mCbPriority) {
+            mCbPriority = cbInfo.cbPriority;
+            mAgnssNif->registerFrameworkStatusCallback((agnssStatusIpV4Callback)cbInfo.statusV4Cb);
         }
     }
 }
@@ -541,14 +674,14 @@ AgpsStateMachine* AgpsManager::getAgpsStateMachine(AGpsExtType agpsType) {
 
     switch (agpsType) {
 
-        case LOC_AGPS_TYPE_INVALID:
-        case LOC_AGPS_TYPE_SUPL:
-        case LOC_AGPS_TYPE_SUPL_ES:
+        case AGPS_TYPE_INVALID:
+        case AGPS_TYPE_SUPL:
+        case AGPS_TYPE_SUPL_ES:
             if (mAgnssNif == NULL) {
                 LOC_LOGE("NULL AGNSS NIF !");
             }
             return mAgnssNif;
-        case LOC_AGPS_TYPE_WWAN_ANY:
+        case AGPS_TYPE_WWAN_ANY:
             if (mInternetNif == NULL) {
                 LOC_LOGE("NULL Internet NIF !");
             }
@@ -561,19 +694,27 @@ AgpsStateMachine* AgpsManager::getAgpsStateMachine(AGpsExtType agpsType) {
     return NULL;
 }
 
+AtlTimer* AgpsManager::getAtlTimerInstance() {
+    if (mAgnssNif != NULL) {
+        return (mAgnssNif->getAtlTimerInstance());
+    }
+
+    return NULL;
+}
+
 void AgpsManager::requestATL(int connHandle, AGpsExtType agpsType,
-                             LocApnTypeMask apnTypeMask, LocSubId subId) {
+                             LocApnTypeMask apnTypeMask, SubId subId, uint32_t timeout) {
 
     LOC_LOGD("AgpsManager::requestATL(): connHandle %d, agpsType 0x%X apnTypeMask: 0x%X",
                connHandle, agpsType, apnTypeMask);
 
     if (0 == loc_core::ContextBase::mGps_conf.USE_EMERGENCY_PDN_FOR_EMERGENCY_SUPL &&
-        LOC_AGPS_TYPE_SUPL_ES == agpsType) {
-        agpsType = LOC_AGPS_TYPE_SUPL;
-        apnTypeMask &= ~LOC_APN_TYPE_MASK_EMERGENCY;
-        apnTypeMask |= LOC_APN_TYPE_MASK_SUPL;
+        AGPS_TYPE_SUPL_ES == agpsType) {
+        agpsType = AGPS_TYPE_SUPL;
+        apnTypeMask &= ~APN_TYPE_EMERGENCY_BIT;
+        apnTypeMask |= APN_TYPE_SUPL_BIT;
         LOC_LOGD("Changed agpsType to non-emergency when USE_EMERGENCY... is 0"
-                 "and removed LOC_APN_TYPE_MASK_EMERGENCY from apnTypeMask"
+                 "and removed APN_TYPE_EMERGENCY_BIT from apnTypeMask"
                  "agpsType 0x%X apnTypeMask : 0x%X",
                  agpsType, apnTypeMask);
     }
@@ -590,6 +731,7 @@ void AgpsManager::requestATL(int connHandle, AGpsExtType agpsType,
     sm->setType(agpsType);
     sm->setApnTypeMask(apnTypeMask);
     sm->setSubId(subId);
+    sm->setAtlTimeoutValue(timeout);
 
     /* Invoke AGPS SM processing */
     AgpsSubscriber subscriber(connHandle, true, false, apnTypeMask);
@@ -598,7 +740,7 @@ void AgpsManager::requestATL(int connHandle, AGpsExtType agpsType,
     sm->processAgpsEvent(AGPS_EVENT_SUBSCRIBE);
 }
 
-void AgpsManager::releaseATL(int connHandle){
+void AgpsManager::releaseATL(int connHandle, uint32_t timeout){
 
     LOC_LOGD("AgpsManager::releaseATL(): connHandle %d", connHandle);
 
@@ -622,6 +764,7 @@ void AgpsManager::releaseATL(int connHandle){
     }
 
     /* Now send unsubscribe event */
+    sm->setAtlTimeoutValue(timeout);
     sm->setCurrentSubscriber(subscriber);
     sm->processAgpsEvent(AGPS_EVENT_UNSUBSCRIBE);
 }
@@ -638,6 +781,9 @@ void AgpsManager::reportAtlOpenSuccess(
     AgpsStateMachine* sm = getAgpsStateMachine(agpsType);
 
     if (sm != NULL) {
+        /* Stopping the AtlTimer waiting for data connection response*/
+        sm->stopAtlTimer();
+
         /* Set bearer and apn info in state machine instance */
         sm->setBearer(bearerType);
         sm->setAPN(apnName, apnLen);
@@ -654,6 +800,8 @@ void AgpsManager::reportAtlOpenFailed(AGpsExtType agpsType){
     /* Fetch SM and send DENIED event */
     AgpsStateMachine* sm = getAgpsStateMachine(agpsType);
     if (sm != NULL) {
+        /* Stopping the AtlTimer waiting for data connection response*/
+        sm->stopAtlTimer();
         sm->processAgpsEvent(AGPS_EVENT_DENIED);
     }
 }
@@ -665,7 +813,18 @@ void AgpsManager::reportAtlClosed(AGpsExtType agpsType){
     /* Fetch SM and send RELEASED event */
     AgpsStateMachine* sm = getAgpsStateMachine(agpsType);
     if (sm != NULL) {
+        /* Stopping the AtlTimer waiting for data connection response*/
+        sm->stopAtlTimer();
         sm->processAgpsEvent(AGPS_EVENT_RELEASED);
+    }
+}
+
+void AgpsManager::handleAtlTimeout(){
+
+    LOC_LOGD("AgpsManager::handleAtlTimeout()");
+
+    if (mAgnssNif) {
+        mAgnssNif->processAgpsEvent(AGPS_EVENT_TIMEOUT);
     }
 }
 
