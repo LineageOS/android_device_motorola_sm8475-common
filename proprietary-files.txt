@@ -386,6 +386,9 @@ vendor/lib64/vendor.qti.hardware.embmssl@1.1.so
 product/etc/permissions/privapp-permissions-com.google.android.euicc.xml|ef99fe93aa2ed629fef39c3dcc4b07c597c1f469
 product/priv-app/EuiccGoogle/EuiccGoogle.apk;PRESIGNED|74ccc6d238178529311808f5da3b383a03117bba
 
+# Fingerprint
+vendor/etc/vintf/manifest/manifest_IMoto_Fingerprint.xml
+
 # FM
 vendor/lib64/hw/vendor.qti.hardware.fm@1.0-impl.so
 vendor/lib64/vendor.qti.hardware.fm@1.0.so
