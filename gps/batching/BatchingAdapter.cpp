@@ -67,7 +67,7 @@ BatchingAdapter::BatchingAdapter() :
     };
     UTIL_READ_CONF(LOC_PATH_IZAT_CONF, batching_conf_param_table);
 
-    LOC_LOGd("batchSize %u tripBatchSize %u batchingAccuracy %u batchingTimeout %u ",
+    LOC_LOGd("batchSize %zu tripBatchSize %zu batchingAccuracy %u batchingTimeout %u ",
             mBatchSize, mTripBatchSize, mBatchingAccuracy, mBatchingTimeout);
 
     // at last step, let us inform adapater base that we are done
