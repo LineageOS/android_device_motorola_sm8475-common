@@ -236,8 +236,6 @@ ro.mot.build.customerid=global
 
 # Perf
 ro.vendor.extension_library=libqti-perfd-client.so
-vendor.pasr.activemode.enabled=false
-vendor.pasr.enabled=false
 
 # QC2
 vendor.qc2audio.per_frame.flac.dec.enabled=true
