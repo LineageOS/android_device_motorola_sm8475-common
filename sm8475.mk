@@ -105,8 +105,7 @@ PRODUCT_PACKAGES += \
 
 # fastbootd
 PRODUCT_PACKAGES += \
-    android.hardware.fastboot@1.1-impl-mock \
-    fastbootd
+    android.hardware.fastboot@1.1-impl-mock
 
 # GPS
 PRODUCT_PACKAGES += \
