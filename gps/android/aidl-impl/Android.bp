@@ -88,3 +88,41 @@ cc_binary {
 
     cflags: GNSS_CFLAGS,
 }
+
+cc_fuzz {
+    name: "aidl_fuzzer_android_hardware_gnss",
+    vendor: true,
+
+    srcs: ["fuzzer/fuzzer.cpp"],
+
+    header_libs: [
+        "libgps.utils_headers",
+        "libloc_core_headers",
+        "libloc_pla_headers",
+        "liblocation_api_headers",
+    ],
+
+    shared_libs: [
+        "liblog",
+        "libcutils",
+        "libdl",
+        "libbase",
+        "libutils",
+        "libgps.utils",
+        "liblocation_api",
+        "libbinder",
+        "libbinder_ndk",
+        "libqti_vndfwk_detect_vendor",
+    ] + [
+        "libhidlbase",
+        "android.hardware.gnss-V3-ndk",
+        "android.hardware.gnss-aidl-impl-qti",
+        "libclang_rt.ubsan_standalone",
+    ],
+
+    static_libs: [
+        "libbinder_random_parcel",
+    ],
+
+    cflags: GNSS_CFLAGS,
+}
