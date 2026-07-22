@@ -16,6 +16,24 @@
       "message": "https://review.lineageos.org/q/I88984f6137c0bc9f01da742a7a485445c2162157",
       "revId": "a70536dfc2dafc40e47dd6c3fde6a9309f7558ca",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "540b512d_1c1a4db1",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 35783
+      },
+      "writtenOn": "2026-07-22T04:08:39Z",
+      "side": 1,
+      "message": "Whoops. Done in 494394, closing now. Thanks.",
+      "parentUuid": "ed1ce666_b9abd28f",
+      "revId": "a70536dfc2dafc40e47dd6c3fde6a9309f7558ca",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
