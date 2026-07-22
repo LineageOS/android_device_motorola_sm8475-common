@@ -16,6 +16,24 @@
       "message": "Use the original commit message",
       "revId": "32afc09f1b533d3b36614cdc97198b600a804fc5",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "69a3503c_bbf81406",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 35783
+      },
+      "writtenOn": "2026-07-22T04:42:42Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "bf61f57d_a3538c36",
+      "revId": "32afc09f1b533d3b36614cdc97198b600a804fc5",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
