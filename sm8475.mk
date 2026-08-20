@@ -286,6 +286,7 @@ PRODUCT_PACKAGES += \
 
 # Sensors
 PRODUCT_PACKAGES += \
+    sensors.dynamic_sensor_hal \
     sensors.moto_ext \
     android.hardware.sensors-service.multihal
 
