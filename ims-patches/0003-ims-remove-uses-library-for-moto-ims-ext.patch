@@ -12,18 +12,16 @@ Signed-off-by: Andrew Hexen <SyberHexen@gmail.com>
  1 file changed, 1 insertion(+), 2 deletions(-)
 
 diff --git a/AndroidManifest.xml b/AndroidManifest.xml
-index a02431f..0f16503 100644
+index 780481a..f142838 100644
 --- a/AndroidManifest.xml
 +++ b/AndroidManifest.xml
-@@ -56,6 +56,5 @@
+@@ -57,6 +57,5 @@
          <uses-library android:name="qti-telephony-utils"/>
          <uses-library android:name="ims-ext-common"/>
          <uses-library android:name="moto-telephony"/>
 -        <uses-library android:name="moto-ims-ext"/>
      </application>
--</manifest>
-\ No newline at end of file
-+</manifest>
+ </manifest>
 -- 
 2.43.0
 

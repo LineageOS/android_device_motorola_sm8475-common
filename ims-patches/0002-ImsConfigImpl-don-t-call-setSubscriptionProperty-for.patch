@@ -9,10 +9,10 @@ Subject: [PATCH 2/4] ImsConfigImpl: don't call setSubscriptionProperty for
  1 file changed, 2 insertions(+), 53 deletions(-)
 
 diff --git a/smali/org/codeaurora/ims/ImsConfigImpl.smali b/smali/org/codeaurora/ims/ImsConfigImpl.smali
-index 3a02838..5c023f2 100644
+index 671d92b..72ae3c6 100644
 --- a/smali/org/codeaurora/ims/ImsConfigImpl.smali
 +++ b/smali/org/codeaurora/ims/ImsConfigImpl.smali
-@@ -2704,59 +2704,6 @@
+@@ -2702,59 +2702,6 @@
      return v1
  
      :cond_2
@@ -72,12 +72,6 @@ index 3a02838..5c023f2 100644
      const/4 v5, 0x0
  
      const/4 v6, 0x0
-@@ -3052,3 +2999,5 @@
-     :cond_0
-     return-void
- .end method
-+
-+
 -- 
 2.43.0
 
