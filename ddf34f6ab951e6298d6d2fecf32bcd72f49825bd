@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "5e84ab63_6fb7cd1b",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 19979
+      },
+      "writtenOn": "2026-09-04T16:32:30Z",
+      "side": 1,
+      "message": "Topic requires the following kernel sources:\nhttps://github.com/moto-sm8450/android_kernel_motorola_sm8475/tree/lineage-24.0\nhttps://github.com/moto-sm8450/android_kernel_motorola_sm8475-devicetrees/tree/lineage-24.0\nhttps://github.com/moto-sm8450/android_kernel_motorola_sm8475-modules/tree/lineage-24.0",
+      "revId": "ddf34f6ab951e6298d6d2fecf32bcd72f49825bd",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
