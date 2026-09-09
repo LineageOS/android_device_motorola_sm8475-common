@@ -16,6 +16,23 @@
       "message": "Topic requires the following kernel sources:\nhttps://github.com/moto-sm8450/android_kernel_motorola_sm8475/tree/lineage-24.0\nhttps://github.com/moto-sm8450/android_kernel_motorola_sm8475-devicetrees/tree/lineage-24.0\nhttps://github.com/moto-sm8450/android_kernel_motorola_sm8475-modules/tree/lineage-24.0",
       "revId": "ddf34f6ab951e6298d6d2fecf32bcd72f49825bd",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "1e8f3d58_614a4b82",
+        "filename": "BoardConfigCommon.mk",
+        "patchSetId": 1
+      },
+      "lineNbr": 97,
+      "author": {
+        "id": 19252
+      },
+      "writtenOn": "2026-09-09T18:00:35Z",
+      "side": 1,
+      "message": "For sm8475-common, should this be waipio?",
+      "revId": "ddf34f6ab951e6298d6d2fecf32bcd72f49825bd",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
