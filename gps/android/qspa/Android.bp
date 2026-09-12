@@ -1,0 +1,13 @@
+prebuilt_etc {
+    name: "qspa-nav.xml",
+    src: "qspa-nav.xml",
+    sub_dir: "etc/vintf/manifest/qspa",
+    vendor: true,
+}
+
+prebuilt_etc {
+    name: "nav_disabled.rc",
+    src: "nav_disabled.rc",
+    sub_dir: "qspa",
+    vendor: true,
+}
