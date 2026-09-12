@@ -95,7 +95,6 @@ vendor/lib64/libaualgo_foundation.so
 vendor/lib64/libaudio_log_utils.so
 vendor/lib64/libdapparamstorage.so
 vendor/lib64/libmcs.so
-vendor/lib64/libpal_net_if.so
 vendor/lib64/libqtigefar.so
 
 # Audio misc
@@ -387,49 +386,48 @@ vendor/bin/hw/android.hardware.gatekeeper@1.0-service-qti
 vendor/etc/init/android.hardware.gatekeeper@1.0-service-qti.rc
 vendor/lib64/hw/android.hardware.gatekeeper@1.0-impl-qti.so
 
-# GNSS
-vendor/bin/edgnss-daemon
-vendor/bin/engine-service
-vendor/bin/garden_app
-vendor/bin/loc_launcher
-vendor/bin/lowi-server
-vendor/bin/xtra-daemon
-vendor/etc/init/loc-launcher.rc
-vendor/etc/vintf/manifest/vendor.qti.gnss-service.xml
-vendor/lib64/libcdfw.so
-vendor/lib64/libcdfw_remote_api.so
-vendor/lib64/libdataitems.so
-vendor/lib64/libengineplugin.so
-vendor/lib64/libgarden.so
-vendor/lib64/libgarden_haltests_e2e.so
-vendor/lib64/libgdtap.so
-vendor/lib64/libizat_client_api.so
-vendor/lib64/libizat_core.so
-vendor/lib64/liblbs_core.so
-vendor/lib64/libloc_api_v02.so
-vendor/lib64/libloc_api_wds.so
-vendor/lib64/libloc_base_util.so
-vendor/lib64/libloc_eng_hub.so
-vendor/lib64/libloc_mq_client.so
-vendor/lib64/libloc_qwes_iface.so
-vendor/lib64/libloc_ril_client.so
-vendor/lib64/libloc_util.so
-vendor/lib64/liblocationservice.so
-vendor/lib64/liblocationservice_glue.so
-vendor/lib64/liblocdiagiface.so
-vendor/lib64/liblowi_client.so
-vendor/lib64/liblowi_common.so
-vendor/lib64/liblowi_wifihal.so
-vendor/lib64/libslimclient.so
-vendor/lib64/libsynergy_loc_api.so
-vendor/lib64/libsys_info_cache.so
-vendor/lib64/libxtadapter.so
-vendor/lib64/vendor.qti.gnss-V5-ndk_platform.so
-vendor/lib64/vendor.qti.gnss-service.so
+# GNSS - from W1VAS36.62_22_16_1_9
+vendor/bin/edgnss-daemon|197c9360aea41e55094a366687dd3c55eed23cd2
+vendor/bin/engine-service|09239bf56f299f2a0d0d9bd810e6f90a696bada1
+vendor/bin/loc_launcher|57606c6e85895b4c29c1339494cfb9774ef3ee17
+vendor/bin/lowi-server|b84377cd0269eeb6bb71cf15a96460cbaf4e1a32
+vendor/bin/xtra-daemon|35701ecc76eccb37b2d34794556daae7d97f2081
+vendor/etc/init/loc-launcher.rc|b1422d7deab218570019887dcac97d175f401cea
+vendor/etc/vintf/manifest/vendor.qti.gnss-service.xml|b19bb4f351621af9c9eeb1e74ac5ab5b3787372e
+vendor/lib64/libcdfw.so|491ae4380a373b0e287f0b85e02a6e9364cee9dc
+vendor/lib64/libcdfw_remote_api.so|572e8f893edee694211aa809bf2300d68dafef60
+vendor/lib64/libdataitems.so|4f358fa734c1d9d93717b98ea60aeb119344600b
+vendor/lib64/libengineplugin.so|48999d8f8e39abfb867c5d596c993443afbcf3f3
+vendor/lib64/libgdtap.so|60126e9aaa801f119e09dbda0cd2d8940c664531
+vendor/lib64/libizat_client_api.so|fb3b4e681d0049484461180a02390227abc30605
+vendor/lib64/libizat_core.so|034b3e566dc8dae07b7c616c20b87c0cc8218015
+vendor/lib64/liblbs_core.so|09f798dcf6ea732549235e970d4db356d4c91427
+vendor/lib64/libloc_api_v02.so|99e467fdd956e4164148104336d6a1fdeecb1058
+vendor/lib64/libloc_api_wds.so|35c82ef7da405fbd9b49d6ebd756b06691e01842
+vendor/lib64/libloc_base_util.so|0813397b0e6807167d74bc7f7f7dad3908cfe3f4
+vendor/lib64/libloc_core.so|a35b294075fe8b22fed976d648d58c3fdad50b0f
+vendor/lib64/libloc_eng_hub.so|30719f470342ba6c550942c73a8dec3be4ecfe3c
+vendor/lib64/libloc_mq_client.so|8370d08af0623353475e23498bce282650116ce2
+vendor/lib64/libloc_qwes_iface.so|b08de2042f35d1e86ed3220ae0ba6d19e557cf54
+vendor/lib64/libloc_util.so|deda780313f20b65b38371965b7a700a00682398
+vendor/lib64/liblocationservice.so|4e9436350bcc9b29e3a44acadc6a88d921d58ce1
+vendor/lib64/liblocationservice_glue.so|a407f8b6af97cdd99cc7e266af560b156f402f1f
+vendor/lib64/liblocdiagiface.so|240f98b080ce924d3a5da569d6f64b6ce85590e5
+vendor/lib64/liblowi_client.so|7a65fd78e743e939f65683cc955ee4e9356fb95d
+vendor/lib64/liblowi_common.so|56b7a06fd55861a913205fea5ea76f35fef798fc
+vendor/lib64/liblowi_wifihal.so|26d7497dacc971db44b977665743768f8df226fc
+vendor/lib64/libpal_net_if.so|68613cea56dc04aaf260b2c2f3489aec15fac214
+vendor/lib64/libslimclient.so|f6c7d4c6a7e3ae21074d6c6bf0afea170cb1ab12
+vendor/lib64/libsynergy_loc_api.so|362cef3e281a29ee3f4a52d1b11c0195db4ccf62
+vendor/lib64/libsys_info_cache.so|19ee23262863149653c64e3a4e48099aac66756a
+vendor/lib64/libwifiobserver.so|91648e3fdb0a73fc11f63bb49bb2209f0ca1f902
+vendor/lib64/libxtadapter.so|2a9117f1c7cf681f000a6e027a50e54a12689a28
+vendor/lib64/vendor.qti.gnss-V7-ndk.so|a0feaf4ce9ca8f3cd0759feaa5fc460a821d0241
+vendor/lib64/vendor.qti.gnss-service.so|7ca90472449cbe645ea0e510dbd991a285d7dd5a
 
-# GNSS configs
-vendor/etc/lowi.conf
-vendor/etc/sap.conf
+# GNSS configs - from W1VAS36.62_22_16_1_9
+vendor/etc/lowi.conf|42b841f09ed3e86d10adeadfccf52aeb246da243
+vendor/etc/sap.conf|b5ea86d9d9ee36dc13194474d343dae36f6fa032
 
 # Graphics - Adreno
 vendor/lib64/egl/eglSubDriverAndroid.so
@@ -608,33 +606,33 @@ vendor/lib64/vendor.qti.hardware.alarm@1.0.so
 system_ext/etc/public.libraries-qti.txt
 vendor/etc/public.libraries.txt
 
-# QCC - System
-system_ext/app/QCC/QCC.apk
-system_ext/bin/qccsyshal@1.2-service
-system_ext/etc/init/vendor.qti.hardware.qccsyshal@1.2-service.rc
-system_ext/etc/permissions/com.qti.qcc.vendor_qcc.xml
-system_ext/lib64/libqcc.so
-system_ext/lib64/libqcc_file_agent_sys.so
-system_ext/lib64/libqccdme.so
-system_ext/lib64/libqccfileservice.so
-system_ext/lib64/vendor.qti.hardware.qccsyshal@1.0.so
-system_ext/lib64/vendor.qti.hardware.qccsyshal@1.1.so
-system_ext/lib64/vendor.qti.hardware.qccsyshal@1.2-halimpl.so
-system_ext/lib64/vendor.qti.hardware.qccsyshal@1.2.so
-system_ext/lib64/vendor.qti.hardware.qccvndhal@1.0.so
-system_ext/lib64/vendor.qti.qccsyshal_aidl-V1-ndk.so
-system_ext/lib64/vendor.qti.qccvndhal_aidl-V1-ndk.so
+# QCC - System - from W1VAS36.62_22_16_1_9
+system_ext/app/QCC/QCC.apk|62dd014ea3d1988e6d367e60a185d502ca0a993b
+system_ext/bin/qccsyshal_aidl-service|a7b0b555561d5c6e96fd5ec304aba375e0598458
+system_ext/etc/init/vendor.qti.qccsyshal_aidl-service.rc|1600e951860e2c4caaf1b22d1054c8581cde7d06
+system_ext/etc/permissions/com.qti.qcc.vendor_qcc.xml|84fdcd93d53a1b399b9aa765095d47cdb0d872df
+system_ext/etc/vintf/manifest/vendor.qti.qccsyshal_aidl-service.xml|fd32dfed74549148e553e174e34dfa6ffe53e319
+system_ext/lib64/libqcc.so|d778ad57d71d761320cbf3bebe0e81d9972e32e7
+system_ext/lib64/libqcc_file_agent_sys.so|96a362a4bd70e65f04842bc50cd371619f7c74c2
+system_ext/lib64/libqccdme.so|5cdbcd83becee621b3c18e6c4af316b3e7aa565f
+system_ext/lib64/libqccfileservice.so|0f627d9a5469c5cfb13c6eeb9f7effd04baae44d
+system_ext/lib64/vendor.qti.hardware.qccsyshal@1.0.so|1520a6de7049822cb7a4d17825bd36641c36603d
+system_ext/lib64/vendor.qti.hardware.qccsyshal@1.1.so|46cb3c2816c7c54d7880508270d27cda82d58d12
+system_ext/lib64/vendor.qti.hardware.qccsyshal@1.2.so|802c7d2099eb4c6bc3c860254bf3c99c7eb88360
+system_ext/lib64/vendor.qti.hardware.qccvndhal@1.0.so|80f3679c35244ecf825d0a64cac10719431cfd3b
+system_ext/lib64/vendor.qti.qccsyshal_aidl-V1-ndk.so|974160a24de2f0cc7ca08426786d9a9680265499
+system_ext/lib64/vendor.qti.qccsyshal_aidl-halimpl.so|b18ea4d14226440db8aca2552455b5cfa8f9f659
+system_ext/lib64/vendor.qti.qccvndhal_aidl-V1-ndk.so|6d3a97b11f49354bbe506a1cbc03fb3962557155
 
-# QCC - vendor
-vendor/bin/qcc-trd
-vendor/etc/init/init.qdmastats.rc
-vendor/lib64/hw/vendor.qti.hardware.qccvndhal@1.0-impl.so
-vendor/lib64/libgrpc++_unsecure.so:vendor/lib64/libgrpc++_unsecure_prebuilt.so;FIX_SONAME
-vendor/lib64/libqcc_file_agent.so
-vendor/lib64/vendor.qti.hardware.qccsyshal@1.0.so;MODULE_SUFFIX=_vendor
-vendor/lib64/vendor.qti.hardware.qccsyshal@1.1.so;MODULE_SUFFIX=_vendor
-vendor/lib64/vendor.qti.hardware.qccvndhal@1.0-halimpl.so
-vendor/lib64/vendor.qti.hardware.qccvndhal@1.0.so;MODULE_SUFFIX=_vendor
+# QCC - vendor - from W1VAS36.62_22_16_1_9
+vendor/bin/qcc-vendor|87ec1e3600b981a0de0da4e9acbe2fcc8844a853
+vendor/etc/init/init.qccvendor.rc|aadd859671ffbf0806112f694b6a8d8aa8e8df59
+vendor/etc/vintf/manifest/vendor.qti.qccvndhal_aidl-service.xml|d92ff9bea5a3803104272924440bfe98fa4a4a9f
+vendor/lib64/libqcc_file_agent.so|162b9f5dc42e28eda564863ea884070ae9c96d50
+vendor/lib64/libqcc_sdk.so|aae033ba18fe87e75160c254e139a3bd5b2aa1e0
+vendor/lib64/vendor.qti.qccsyshal_aidl-V1-ndk.so;MODULE_SUFFIX=_vendor|e3af2a464bee0f42ca5271bf21772800c84a2cb7
+vendor/lib64/vendor.qti.qccvndhal_aidl-V1-ndk.so;MODULE_SUFFIX=_vendor|b0fe244e38842d33722d5a6db530fb206c338fba
+vendor/lib64/vendor.qti.qccvndhal_aidl-halimpl.so|5b5009d98926b44e81b496d8e31ff96bf2e0dcb9
 
 # QCV
 vendor/bin/init.qti.qcv.sh
