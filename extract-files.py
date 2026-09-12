@@ -38,30 +38,15 @@ lib_fixups: lib_fixups_user_type = {
         'vendor.qti.diaghal@1.0',
         'vendor.qti.hardware.dpmservice@1.0',
         'vendor.qti.hardware.dpmservice@1.1',
-        'vendor.qti.hardware.qccsyshal@1.0',
-        'vendor.qti.hardware.qccsyshal@1.1',
-        'vendor.qti.hardware.qccvndhal@1.0',
         'vendor.qti.imsrtpservice@3.0',
+        'vendor.qti.qccsyshal_aidl-V1-ndk',
+        'vendor.qti.qccvndhal_aidl-V1-ndk',
     ): lib_fixup_vendor_suffix,
 }
 
 blob_fixups: blob_fixups_user_type = {
     'system_ext/etc/permissions/moto-telephony.xml': blob_fixup().regex_replace(
         '/system/', '/system_ext/'
-    ),
-    'system_ext/lib64/vendor.qti.hardware.qccsyshal@1.2-halimpl.so': blob_fixup()
-        .replace_needed('libprotobuf-cpp-full.so', 'libprotobuf-cpp-full-21.7.so'),
-    (
-        'vendor/lib64/libgarden.so',
-        'vendor/lib64/libgarden_haltests_e2e.so'
-    ): blob_fixup()
-    .replace_needed(
-        'android.hardware.gnss-V1-ndk_platform.so',
-        'android.hardware.gnss-V1-ndk.so'
-    )
-    .replace_needed(
-        'vendor.qti.gnss-V3-ndk_platform.so',
-        'vendor.qti.gnss-V5-ndk_platform.so'
     ),
     (
         'vendor/bin/hw/android.hardware.security.keymint-service-qti',
@@ -82,9 +67,6 @@ blob_fixups: blob_fixups_user_type = {
     .add_needed('android.hardware.security.rkp-V1-ndk.so'),
     'vendor/bin/init.kernel.post_boot.sh': blob_fixup()
         .regex_replace('ro.boot.using_zram_from_fstab', 'ro.vendor.zram.swapon'),
-    'vendor/bin/qcc-trd': blob_fixup().replace_needed(
-        'libgrpc++_unsecure.so', 'libgrpc++_unsecure_prebuilt.so'
-    ),
     'system_ext/priv-app/ims/ims.apk': blob_fixup().apktool_patch(
         'ims-patches'
     ),
