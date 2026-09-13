@@ -33,6 +33,23 @@
       "message": "qccsyshal_aidl",
       "revId": "d02aff923767c16c9773501bfd10fa5dcf48400e",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "63c9ad1f_fee1c64a",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 19979
+      },
+      "writtenOn": "2026-09-13T02:02:13Z",
+      "side": 1,
+      "message": "I could import it into the the non-aidl but, inheriting both seems fine as well",
+      "revId": "d02aff923767c16c9773501bfd10fa5dcf48400e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
