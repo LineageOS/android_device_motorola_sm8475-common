@@ -16,6 +16,23 @@
       "message": "Why do you need aidl one?",
       "revId": "d02aff923767c16c9773501bfd10fa5dcf48400e",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "a18d881c_7b698fd2",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 19979
+      },
+      "writtenOn": "2026-09-13T02:01:05Z",
+      "side": 1,
+      "message": "qccsyshal_aidl",
+      "revId": "d02aff923767c16c9773501bfd10fa5dcf48400e",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
     }
   ]
 }
