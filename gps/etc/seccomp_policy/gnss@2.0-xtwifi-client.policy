@@ -74,4 +74,6 @@ geteuid32: 1
 getrlimit: 1
 shutdown: 1
 setpriority: 1
+sched_get_priority_min: 1
+sched_get_priority_max: 1
 
