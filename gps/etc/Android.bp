@@ -33,13 +33,6 @@ prebuilt_etc {
 }
 
 prebuilt_etc {
-    name: "gnss@2.0-xtra-daemon.policy",
-    vendor: true,
-    sub_dir: "seccomp_policy",
-    src: "seccomp_policy/gnss@2.0-xtra-daemon.policy",
-}
-
-prebuilt_etc {
     name: "gnss@2.0-qsap-location.policy",
     vendor: true,
     sub_dir: "seccomp_policy",
