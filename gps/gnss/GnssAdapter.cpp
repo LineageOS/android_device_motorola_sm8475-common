@@ -28,7 +28,7 @@
  */
 
 /*
- * ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
@@ -9410,6 +9410,7 @@ void GnssAdapter::handleEnablePPENtrip(const GnssNtripConnectionParams& params,
              params.requiresNmeaLocation, nmeaUpdateInterval, mSendNmeaConsent);
 
     GnssNtripConnectionParams* pNtripParams = &(mStartDgnssNtripParams.ntripParams);
+    SystemStatus* systemStatus = getSystemStatus();
 
     if (pNtripParams->useSSL == params.useSSL &&
             0 == pNtripParams->hostNameOrIp.compare(params.hostNameOrIp) &&
@@ -9421,13 +9422,18 @@ void GnssAdapter::handleEnablePPENtrip(const GnssNtripConnectionParams& params,
             pNtripParams->nmeaUpdateInterval == nmeaUpdateInterval &&
             mDgnssState & DGNSS_STATE_ENABLE_NTRIP_COMMAND) {
         LOC_LOGd("received same Ntrip param");
+        if (nullptr != systemStatus) {
+            systemStatus->eventNtripStarted(true);
+        }
         return;
     }
 
     mDgnssState |= DGNSS_STATE_ENABLE_NTRIP_COMMAND;
     mDgnssState |= DGNSS_STATE_NO_NMEA_PENDING;
     mDgnssState &= ~DGNSS_STATE_NTRIP_SESSION_STARTED;
-    getSystemStatus()->eventNtripStarted(true);
+    if (nullptr != systemStatus) {
+        systemStatus->eventNtripStarted(true);
+    }
 
     mStartDgnssNtripParams.ntripParams = std::move(params);
     mStartDgnssNtripParams.ntripParams.nmeaUpdateInterval = nmeaUpdateInterval;
@@ -9457,10 +9463,13 @@ void GnssAdapter::disablePPENtripStreamCommand() {
 }
 
 void GnssAdapter::handleDisablePPENtrip() {
+    SystemStatus* systemStatus = getSystemStatus();
     mDgnssState &= ~DGNSS_STATE_ENABLE_NTRIP_COMMAND;
     mDgnssState |= DGNSS_STATE_NO_NMEA_PENDING;
     stopDgnssNtrip();
-    getSystemStatus()->eventNtripStarted(false);
+    if (nullptr != systemStatus) {
+        systemStatus->eventNtripStarted(false);
+    }
 }
 
 void GnssAdapter::checkUpdateDgnssNtrip(bool isLocationValid) {
@@ -9478,6 +9487,10 @@ void GnssAdapter::checkUpdateDgnssNtrip(bool isLocationValid) {
         uint64_t curBootTime = getBootTimeMilliSec();
         if (mDgnssState == (DGNSS_STATE_ENABLE_NTRIP_COMMAND | DGNSS_STATE_NO_NMEA_PENDING)) {
             mDgnssState |= DGNSS_STATE_NTRIP_SESSION_STARTED;
+	    SystemStatus* systemStatus = getSystemStatus();
+            if (nullptr != systemStatus) {
+                systemStatus->eventNtripStarted(true);
+            }
             mXtraObserver.startDgnssSource(mStartDgnssNtripParams);
             if (isDgnssNmeaRequired()) {
                 mDgnssLastNmeaBootTimeMilli = curBootTime;
@@ -9551,6 +9564,7 @@ void GnssAdapter::reportGGAToNtrip(const char* nmea) {
 void GnssAdapter::readPPENtripConfig() {
 
     static char NtripParamsString[LOC_MAX_PARAM_STRING];
+    SystemStatus* systemStatus = getSystemStatus();
 
     if (mDgnssState & DGNSS_STATE_ENABLE_NTRIP_COMMAND) {
         return;
@@ -9605,7 +9619,9 @@ void GnssAdapter::readPPENtripConfig() {
     mDgnssState |= DGNSS_STATE_ENABLE_NTRIP_COMMAND;
     mDgnssState |= DGNSS_STATE_NO_NMEA_PENDING;
     mDgnssState &= ~DGNSS_STATE_NTRIP_SESSION_STARTED;
-    getSystemStatus()->eventNtripStarted(true);
+    if (nullptr != systemStatus) {
+        systemStatus->eventNtripStarted(true);
+    }
 
     mStartDgnssNtripParams.nmea.clear();
     if (pNtripParams->requiresNmeaLocation) {
