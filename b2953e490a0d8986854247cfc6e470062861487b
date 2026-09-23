@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "a7cd3e68_26be969d",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 14010
+      },
+      "writtenOn": "2026-09-23T11:23:30Z",
+      "side": 1,
+      "message": "The whole chain seems fine on eqs paired with the latest iteration of the sepolicy chain.",
+      "revId": "b2953e490a0d8986854247cfc6e470062861487b",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
