@@ -283,8 +283,6 @@ void ContextBase::readConfig()
 }
 
 void ContextBase::readIZatConfForValueAddedProcess() {
-    bool retVal = true;
-    const char *error = nullptr;
     unsigned int processListLength = 0;
     loc_process_info_s_type* processInfoList = nullptr;
 
